@@ -28,7 +28,7 @@ Sauvegardes créées à côté de chaque fichier, sous le nom
    ```
 
    Un petit panneau demande l'adresse et le mot de passe du compte Firebase
-   (`brahmsfr@yahoo.fr`). Le mot de passe n'est **écrit nulle part** : il vit en
+   (celui créé dans Authentication). Le mot de passe n'est **écrit nulle part** : il vit en
    mémoire le temps de la session.
 
 4. Le téléphone doit alors afficher le poste, le cours projeté et la journée.
