@@ -56,12 +56,30 @@
   var timerPub = null;
 
   /* ══ 1. Accès à la fenêtre de projection ══════════════════
-   * window.open('', nom) rend la fenêtre déjà ouverte sans y naviguer.
-   * Les deux fenêtres sont de même origine : on peut appeler son API
-   * window.P directement, sans postMessage. */
+   *
+   * ATTENTION — window.open('', nom) ne rend PAS la fenêtre existante quand
+   * elle n'existe pas : elle en CRÉE une vide. Utilisée pour sonder l'état,
+   * cette forme ouvrait une fenêtre blanche « editeur-pse » à chaque
+   * publication. Ne jamais la réintroduire.
+   *
+   * On garde donc une référence, capturée au moment où la Suite PSE ouvre
+   * elle-même sa fenêtre de projection. Les deux fenêtres étant de même
+   * origine, on appelle ensuite son API window.P directement.
+   */
+  var fenetreProjection = null;
+
+  (function surveillerOuvertures() {
+    var ouvrirOriginal = window.open;
+    window.open = function (url, nom) {
+      var w = ouvrirOriginal.apply(window, arguments);
+      if (nom === NOM_FENETRE_PRESENTER && w) fenetreProjection = w;
+      return w;
+    };
+  })();
+
   function presenter() {
     try {
-      var w = window.open('', NOM_FENETRE_PRESENTER);
+      var w = fenetreProjection;
       if (!w || w.closed || !w.P) return null;
       return w;
     } catch (e) {
