@@ -458,7 +458,7 @@
       el.id = 'pse-mobile-pastille';
       el.type = 'button';
       el.setAttribute('style',
-        'position:fixed;left:14px;bottom:14px;z-index:99998;border:0;border-radius:999px;' +
+        'position:fixed;left:14px;bottom:58px;z-index:99998;border:0;border-radius:999px;' +
         'padding:9px 15px;color:#fff;font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;' +
         'box-shadow:0 3px 14px rgba(0,0,0,.28);cursor:pointer;opacity:.93');
       el.onclick = function () {
