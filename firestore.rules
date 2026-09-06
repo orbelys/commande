@@ -1,0 +1,35 @@
+rules_version = '2';
+
+/*
+ * Règles Firestore pour le pont Suite PSE ↔ téléphone.
+ *
+ * Principe : chaque compte ne voit que ses propres données. L'identifiant du
+ * compte (uid) est le nom du document. Personne d'autre ne peut lire ni écrire,
+ * même en connaissant les clés Web de l'application — celles-ci sont publiques
+ * par conception, la sécurité vient d'ici.
+ *
+ * À coller dans : console Firebase → Firestore Database → onglet Règles.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function estLeProprietaire(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Instantané publié par la Suite PSE, lu par le téléphone.
+    match /postes/{uid} {
+      allow read, write: if estLeProprietaire(uid);
+    }
+
+    // File de commandes du téléphone vers la Suite PSE.
+    match /commandes/{uid}/file/{commandeId} {
+      allow read, write: if estLeProprietaire(uid);
+    }
+
+    // Tout le reste est fermé.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

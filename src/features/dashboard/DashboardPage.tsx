@@ -2,15 +2,21 @@ import Card from '../../components/ui/Card'
 import PageHeader from '../../components/ui/PageHeader'
 import TileButton from '../../components/ui/TileButton'
 import Badge from '../../components/ui/Badge'
-import SeanceEnCours from './SeanceEnCours'
+import ProjectionEnCours from './ProjectionEnCours'
+import JourneeCard from './JourneeCard'
+import ActionsCard from './ActionsCard'
 import { useBridge } from '../../hooks/useBridge'
 import { depuis } from '../../lib/format'
 import styles from './DashboardPage.module.css'
 
 export default function DashboardPage() {
   const { snapshot, commandes, status } = useBridge()
-  const enAttente = commandes.filter((c) => c.statut === 'en_attente' || c.statut === 'envoyee').length
-  const aVenir = snapshot?.progression.filter((p) => p.statut !== 'fait').length ?? 0
+
+  const enAttente = commandes.filter(
+    (c) => c.statut === 'en_attente' || c.statut === 'envoyee',
+  ).length
+  const aTraiter = snapshot?.seances.filter((s) => s.statut === 'À terminer' || s.statut === 'Reporté').length ?? 0
+  const docsCaches = snapshot?.projection?.documents.filter((d) => !d.visible).length ?? 0
 
   return (
     <>
@@ -18,16 +24,18 @@ export default function DashboardPage() {
         titre="Tableau de bord"
         detail={
           status === 'online'
-            ? `Instantané reçu ${depuis(snapshot?.majA ?? null)}`
-            : 'En attente de l’application Electron'
+            ? `${snapshot?.poste ?? 'Poste'} · instantané reçu ${depuis(snapshot?.majA ?? null)}`
+            : 'En attente de la Suite PSE'
         }
       />
 
-      <SeanceEnCours />
+      <ProjectionEnCours />
+      <JourneeCard />
+      <ActionsCard />
 
       <Card titre="Accès rapide" padding={false}>
         <div className={styles.grille}>
-          <TileButton to="/cours" icone="▶" titre="Cours en cours" detail="Piloter la séance" />
+          <TileButton to="/projection" icone="▶" titre="Cours en cours" detail="Télécommande" />
           <TileButton
             to="/classes"
             icone="☷"
@@ -44,22 +52,26 @@ export default function DashboardPage() {
             to="/progression"
             icone="◷"
             titre="Progression"
-            detail={`${aVenir} séances à venir`}
+            detail={aTraiter > 0 ? `${aTraiter} séance(s) à reprendre` : 'Séances'}
           />
           <TileButton
             to="/documents"
             icone="▤"
             titre="Documents"
-            detail={`${snapshot?.documents.length ?? 0} fichiers`}
+            detail={
+              snapshot?.projection
+                ? `${snapshot.projection.documents.length} document(s)${docsCaches ? `, ${docsCaches} masqué(s)` : ''}`
+                : 'Aucune projection'
+            }
           />
-          <TileButton to="/synchronisation" icone="⟳" titre="Synchronisation" detail="Etat du lien" />
+          <TileButton to="/synchronisation" icone="⟳" titre="Synchronisation" detail="État du lien" />
         </div>
       </Card>
 
       <Card titre="Poste relié">
         <div className={styles.poste}>
           <div>
-            <p className={styles.posteNom}>{snapshot?.appareil ?? 'Aucun poste'}</p>
+            <p className={styles.posteNom}>{snapshot?.poste ?? 'Aucun poste'}</p>
             <p className={styles.posteDetail}>
               {snapshot ? `Mise à jour ${depuis(snapshot.majA)}` : 'Aucun instantané reçu'}
             </p>

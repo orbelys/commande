@@ -1,18 +1,19 @@
 import { Emitter } from './emitter'
 import { snapshotDemo } from '../../data/demo'
-import type { Command, Snapshot, Transport, TransportEvent } from './types'
+import type { Command, Snapshot, StatutSeance, Transport, TransportEvent, Remise } from './types'
 
 const DELAI_CONNEXION = 700
 const DELAI_APPLICATION = 450
 
 /**
- * Transport de démonstration : simule Electron sans reseau.
+ * Transport de démonstration : simule la Suite PSE sans réseau.
  * Il applique les commandes sur un instantané local puis le republie,
  * exactement comme le fera Electron via Firebase.
  */
 export class MockTransport implements Transport {
   readonly id = 'mock'
   readonly libelle = 'Simulation locale'
+  readonly authRequise = false
 
   private emitter = new Emitter()
   private snapshot: Snapshot = snapshotDemo()
@@ -51,8 +52,17 @@ export class MockTransport implements Transport {
     }
     this.emitter.emit({ type: 'command', id: command.id, statut: 'envoyee' })
     this.planifier(() => {
-      this.appliquer(command)
-      this.emitter.emit({ type: 'command', id: command.id, statut: 'appliquee' })
+      try {
+        this.appliquer(command)
+        this.emitter.emit({ type: 'command', id: command.id, statut: 'appliquee' })
+      } catch (e) {
+        this.emitter.emit({
+          type: 'command',
+          id: command.id,
+          statut: 'echouee',
+          erreur: e instanceof Error ? e.message : String(e),
+        })
+      }
       this.publier()
     }, DELAI_APPLICATION)
   }
@@ -73,93 +83,117 @@ export class MockTransport implements Transport {
   /** Reproduit ce que fera Electron à la réception d'une commande. */
   private appliquer(command: Command): void {
     const s = this.snapshot
-    const seance = s.seance
-    const cours = seance ? s.cours.find((c) => c.id === seance.coursId) : undefined
-    const maxEtape = cours?.nbEtapes ?? 1
+    const p = s.projection
+    const payload = command.payload
 
     switch (command.type) {
-      case 'classe.selectionner': {
-        const classeId = String(command.payload.classeId)
-        const premier = s.cours.find((c) => c.classeId === classeId)
-        this.snapshot = {
-          ...s,
-          seance: {
-            coursId: premier?.id ?? seance?.coursId ?? s.cours[0].id,
-            classeId,
-            etape: 1,
-            demarreeA: null,
-            enPause: false,
-            corrigeVisible: false,
-          },
+      case 'projection.ouvrir':
+        if (p) this.snapshot = { ...s, projection: { ...p, fenetreOuverte: true } }
+        break
+
+      case 'projection.etape.suivante':
+        if (p) {
+          const etape = Math.min(p.nbEtapes - 1, p.etape + 1)
+          this.snapshot = { ...s, projection: this.majEtape(p, etape) }
         }
         break
-      }
-      case 'cours.selectionner': {
-        const coursId = String(command.payload.coursId)
-        const choisi = s.cours.find((c) => c.id === coursId)
-        this.snapshot = {
-          ...s,
-          seance: {
-            coursId,
-            classeId: choisi?.classeId ?? seance?.classeId ?? s.classes[0].id,
-            etape: 1,
-            demarreeA: null,
-            enPause: false,
-            corrigeVisible: false,
-          },
+
+      case 'projection.etape.precedente':
+        if (p) {
+          const etape = Math.max(-1, p.etape - 1)
+          this.snapshot = { ...s, projection: this.majEtape(p, etape) }
         }
         break
-      }
-      case 'seance.demarrer':
-        if (seance) {
+
+      case 'projection.etape.aller':
+        if (p) {
+          const etape = Math.max(-1, Math.min(p.nbEtapes - 1, Number(payload.etape)))
+          this.snapshot = { ...s, projection: this.majEtape(p, etape) }
+        }
+        break
+
+      case 'projection.corrige.basculer':
+        if (p) {
+          if (!p.corrigeDisponible) throw new Error('Aucun corrigé pour cette étape')
+          this.snapshot = { ...s, projection: { ...p, corrigeVisible: !p.corrigeVisible } }
+        }
+        break
+
+      case 'projection.focus.basculer':
+        if (p) this.snapshot = { ...s, projection: { ...p, focus: !p.focus } }
+        break
+
+      case 'projection.document.afficher':
+        if (p) {
+          const idx = Number(payload.idx)
+          const visible = payload.visible !== false
           this.snapshot = {
             ...s,
-            seance: { ...seance, demarreeA: new Date().toISOString(), enPause: false },
-          }
-        }
-        break
-      case 'seance.etape.suivante':
-        if (seance) {
-          this.snapshot = {
-            ...s,
-            seance: {
-              ...seance,
-              etape: Math.min(maxEtape, seance.etape + 1),
-              corrigeVisible: false,
+            projection: {
+              ...p,
+              documents: p.documents.map((d) => (d.idx === idx ? { ...d, visible } : d)),
             },
           }
         }
         break
-      case 'seance.etape.precedente':
-        if (seance) {
-          this.snapshot = {
-            ...s,
-            seance: { ...seance, etape: Math.max(1, seance.etape - 1), corrigeVisible: false },
-          }
-        }
+
+      case 'seance.statut':
+        this.snapshot = this.majSeance(String(payload.seanceId), {
+          statut: String(payload.statut) as StatutSeance,
+        })
         break
-      case 'seance.pause.basculer':
-        if (seance) this.snapshot = { ...s, seance: { ...seance, enPause: !seance.enPause } }
+
+      case 'seance.remise':
+        this.snapshot = this.majSeance(String(payload.seanceId), {
+          remise: String(payload.remise) as Remise,
+        })
         break
-      case 'seance.corrige.basculer':
-        if (seance) {
-          this.snapshot = { ...s, seance: { ...seance, corrigeVisible: !seance.corrigeVisible } }
-        }
+
+      case 'seance.memo':
+        this.snapshot = this.majSeance(String(payload.seanceId), { memo: String(payload.memo) })
         break
-      case 'progression.marquer': {
-        const id = String(command.payload.itemId)
-        const statut = String(command.payload.statut) as 'a_venir' | 'en_cours' | 'fait'
+
+      case 'action.terminer':
         this.snapshot = {
           ...s,
-          progression: s.progression.map((p) => (p.id === id ? { ...p, statut } : p)),
+          actions: s.actions.map((a) =>
+            a.id === String(payload.actionId)
+              ? { ...a, statut: payload.fait === false ? 'a_faire' : 'fait', retard: false }
+              : a,
+          ),
         }
         break
-      }
-      case 'seance.valider':
-      case 'seance.enregistrer':
-      case 'document.ouvrir':
-        // Rien a changer dans l'instantané simule : Electron s’en charge.
+
+      case 'action.creer':
+        this.snapshot = {
+          ...s,
+          actions: [
+            {
+              id: `a-${Date.now()}`,
+              texte: String(payload.texte),
+              echeance: payload.echeance ? String(payload.echeance) : null,
+              statut: 'a_faire',
+              retard: false,
+            },
+            ...s.actions,
+          ],
+        }
+        break
+
+      case 'note.rapide':
+        // Côté Electron : création d'une note flash. Rien à refléter ici.
         break
     }
+  }
+
+  private majEtape(p: NonNullable<Snapshot['projection']>, etape: number) {
+    const dispo = etape >= 0 ? (p.sommaire[etape]?.corrigeDisponible ?? false) : false
+    return { ...p, etape, corrigeVisible: false, corrigeDisponible: dispo }
+  }
+
+  private majSeance(id: string, patch: Partial<Snapshot['seances'][number]>): Snapshot {
+    const s = this.snapshot
+    if (!s.seances.some((x) => x.id === id)) throw new Error('Séance introuvable')
+    return { ...s, seances: s.seances.map((x) => (x.id === id ? { ...x, ...patch } : x)) }
   }
 }

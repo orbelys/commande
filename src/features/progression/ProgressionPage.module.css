@@ -1,0 +1,57 @@
+.panneau {
+  padding: var(--sp-4);
+  background: var(--c-surface-2);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.section {
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.section:not(:first-child) {
+  margin-top: var(--sp-5);
+}
+
+.choix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.choix button {
+  flex: 1 1 calc(50% - var(--sp-2));
+  min-height: 48px;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+.memo {
+  width: 100%;
+  padding: var(--sp-3);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  resize: vertical;
+}
+
+.memo:disabled {
+  opacity: 0.6;
+}
+
+.memo + button {
+  margin-top: var(--sp-3);
+}
+
+.detail {
+  margin-top: var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}

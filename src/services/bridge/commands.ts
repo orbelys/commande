@@ -1,28 +1,30 @@
 import type { Command, CommandPayload, CommandType } from './types'
 
 const LIBELLES: Record<CommandType, string> = {
-  'classe.selectionner': 'Sélectionner la classe',
-  'cours.selectionner': 'Sélectionner le cours',
-  'seance.demarrer': 'Démarrer la séance',
-  'seance.etape.suivante': 'Étape suivante',
-  'seance.etape.precedente': 'Étape précédente',
-  'seance.pause.basculer': 'Pause / reprise',
-  'seance.corrige.basculer': 'Afficher / masquer le corrigé',
-  'seance.valider': 'Valider l’étape',
-  'seance.enregistrer': 'Enregistrer la séance',
-  'progression.marquer': 'Mettre à jour la progression',
-  'document.ouvrir': 'Ouvrir le document',
+  'projection.ouvrir': 'Ouvrir la fenêtre élèves',
+  'projection.etape.suivante': 'Étape suivante',
+  'projection.etape.precedente': 'Étape précédente',
+  'projection.etape.aller': 'Aller à une étape',
+  'projection.corrige.basculer': 'Afficher / masquer le corrigé',
+  'projection.focus.basculer': 'Mode focus',
+  'projection.document.afficher': 'Afficher / masquer un document',
+  'seance.statut': 'Changer le statut de la séance',
+  'seance.remise': 'Marquer la remise du support',
+  'seance.memo': 'Écrire le mémo de reprise',
+  'action.creer': 'Créer une action',
+  'action.terminer': 'Terminer une action',
+  'note.rapide': 'Note rapide',
 }
 
-function newId(): string {
+function nouvelId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
   return `cmd_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`
 }
 
-/** Fabrique une commande complete, prête à être envoyée et tracée. */
+/** Fabrique une commande complète, prête à être envoyée et tracée. */
 export function createCommand(type: CommandType, payload: CommandPayload = {}): Command {
   return {
-    id: newId(),
+    id: nouvelId(),
     type,
     libelle: LIBELLES[type],
     payload,

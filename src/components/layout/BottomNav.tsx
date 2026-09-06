@@ -3,7 +3,7 @@ import styles from './BottomNav.module.css'
 
 const ONGLETS = [
   { to: '/', icone: '⌂', libelle: 'Accueil', exact: true },
-  { to: '/cours', icone: '▶', libelle: 'Cours', exact: false },
+  { to: '/projection', icone: '▶', libelle: 'Cours', exact: false },
   { to: '/classes', icone: '☷', libelle: 'Classes', exact: false },
   { to: '/commandes', icone: '⇄', libelle: 'Commandes', exact: false },
   { to: '/synchronisation', icone: '⟳', libelle: 'Synchro', exact: false },

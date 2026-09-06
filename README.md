@@ -1,12 +1,13 @@
 # Commande — interface mobile de la Suite PSE
 
 Télécommande web pour piloter l'application Electron **Suite PSE** depuis un
-téléphone : voir la séance en cours, avancer d'une étape, valider, enregistrer,
-choisir une classe ou un cours.
+téléphone : voir la journée, piloter le cours projeté en classe, mettre à jour
+la progression, cocher les actions à faire.
 
-> **État actuel : étape 1.** Le site fonctionne entièrement en local avec des
-> **données fictives**. Le lien réel avec Electron (Firebase) n'est pas encore
-> branché : il est *simulé*, pour pouvoir concevoir et tester l'interface.
+> **État actuel.** Le site fonctionne de bout en bout en local avec des
+> **données fictives** (transport « simulation »). Le transport Firebase est
+> écrit et prêt ; il s'active dès qu'un projet Firebase existe. Le module à
+> greffer dans la Suite PSE est fourni dans `electron/`, avec sa notice.
 
 ---
 
@@ -15,28 +16,26 @@ choisir une classe ou un cours.
 Une seule fois, pour installer les dépendances :
 
 ```bash
-cd /Users/brahms/Documents/GitHub/commande && npm install
+npm install
 ```
 
-Puis, à chaque fois que vous voulez travailler :
+Puis, à chaque session de travail :
 
 ```bash
 cd /Users/brahms/Documents/GitHub/commande && npm run dev
 ```
 
 Le navigateur s'ouvre sur **http://localhost:5173**. Toute modification d'un
-fichier est visible immédiatement, sans rechargement manuel.
+fichier est visible immédiatement. Pour arrêter : `Ctrl + C`.
 
-Pour arrêter le serveur : `Ctrl + C` dans le Terminal.
-
-### Tester sur votre iPhone (même réseau Wi-Fi)
+### Tester sur l'iPhone (même réseau Wi-Fi)
 
 ```bash
 cd /Users/brahms/Documents/GitHub/commande && npm run dev:lan
 ```
 
-Vite affiche alors une adresse « Network » du type `http://192.168.x.x:5173`.
-Ouvrez-la dans Safari sur le téléphone.
+Vite affiche une adresse « Network » du type `http://192.168.x.x:5173` :
+ouvrez-la dans Safari sur le téléphone.
 
 ### Autres commandes
 
@@ -44,8 +43,8 @@ Ouvrez-la dans Safari sur le téléphone.
 |---|---|
 | `npm run dev` | Serveur de développement |
 | `npm run dev:lan` | Idem, accessible depuis le téléphone |
-| `npm run build` | Version optimisée dans `dist/` (pour la mise en ligne, plus tard) |
-| `npm run preview` | Vérifier la version optimisée en local |
+| `npm run build` | Version optimisée dans `dist/` |
+| `npm run preview` | Vérifier la version optimisée |
 | `npm run typecheck` | Contrôler le code sans rien construire |
 
 ---
@@ -55,129 +54,167 @@ Ouvrez-la dans Safari sur le téléphone.
 | Choix | Raison |
 |---|---|
 | **Vite** | Démarrage instantané, rechargement à chaud, build optimisé. |
-| **React** | Interface découpée en composants réutilisables : pas de fichier HTML géant. |
-| **TypeScript** | Le format des commandes envoyées à Electron est typé et vérifié. |
-| **React Router** | Vraies adresses (`/cours`, `/classes`…), navigation naturelle sur mobile. |
-| **CSS Modules + variables CSS** | Styles isolés par composant, thème clair/sombre centralisé, aucune bibliothèque lourde. |
+| **React** | Interface découpée en composants : pas de fichier HTML géant. |
+| **TypeScript** | Le contrat échangé avec Electron est typé et vérifié. |
+| **React Router** | Vraies adresses (`/projection`, `/progression`…). |
+| **CSS Modules + variables CSS** | Styles isolés, thème clair/sombre centralisé, aucune bibliothèque lourde. |
+| **Firebase (chargé à la demande)** | Le SDK n'est téléchargé par le navigateur que si le transport réel est actif. |
 
 ---
 
-## 3. Structure du projet
+## 3. Structure
 
 ```
 commande/
-├── index.html                  Page hôte (une seule, l'app est une SPA)
-├── package.json                Dépendances et commandes npm
-├── vite.config.ts              Configuration du serveur et du build
-├── .env.example                Modèle de configuration (à copier en .env.local)
-├── public/icon.svg             Icône
+├── index.html                  Page hôte (application à page unique)
+├── firestore.rules             Règles de sécurité à coller dans Firebase
+├── .env.example                Modèle de configuration → .env.local
+├── electron/
+│   ├── pse-mobile-bridge.js    Module à charger dans la Suite PSE
+│   └── PATCH-suite-pse.md      Les trois ajouts à faire côté Suite PSE
 └── src/
-    ├── main.tsx                Point d'entrée
     ├── App.tsx                 Table des routes
-    ├── styles/
-    │   ├── tokens.css          Couleurs, espaces, rayons, thème sombre
-    │   └── global.css          Remise à zéro et styles de base
+    ├── styles/                 tokens.css (couleurs, espaces) + global.css
     ├── components/
-    │   ├── layout/             Coque : barre haute, indicateur d'état, nav basse
-    │   └── ui/                 Briques réutilisables : Button, Card, Badge, ListRow…
+    │   ├── layout/             Coque : barre haute, indicateur, nav basse
+    │   └── ui/                 Button, Card, Badge, ListRow, EmptyState…
     ├── features/               Une page = un dossier
-    │   ├── dashboard/          Tableau de bord (accueil)
-    │   ├── cours/              Télécommande de la séance + bibliothèque
-    │   ├── classes/            Choix de la classe active
+    │   ├── dashboard/          Tableau de bord : cours projeté, journée, à faire
+    │   ├── projection/         Télécommande du cours projeté
+    │   ├── progression/        Séances : statut, remise, mémo de reprise
+    │   ├── documents/          Afficher / masquer les documents projetés
+    │   ├── classes/            Classes et séances à venir
     │   ├── commandes/          Journal des commandes envoyées
-    │   ├── progression/        Suivi de la progression
-    │   ├── documents/          Ouverture d'un document dans Electron
-    │   └── sync/               État du lien avec Electron
-    ├── services/bridge/        ★ Pont avec Electron (voir §4)
-    ├── hooks/                  useBridge, useSeance
-    ├── lib/format.ts           Affichage des dates et durées en français
+    │   └── sync/               État du lien, connexion, capacités du poste
+    ├── services/bridge/        ★ Le pont (voir §4)
+    ├── hooks/                  useBridge, useProjection
+    ├── lib/format.ts           Dates et durées en français
     └── data/demo.ts            Données FICTIVES de démonstration
 ```
 
-### Ajouter une page
-
-1. Créer `src/features/ma-page/MaPage.tsx` ;
-2. ajouter une ligne dans `src/App.tsx` ;
-3. (facultatif) ajouter une tuile dans le tableau de bord ou un onglet dans
-   `src/components/layout/BottomNav.tsx`.
+Ajouter une page : créer `src/features/ma-page/MaPage.tsx`, ajouter une ligne
+dans `src/App.tsx`, et si besoin une tuile ou un onglet dans `BottomNav.tsx`.
 
 ---
 
-## 4. Le pont avec Electron (`src/services/bridge/`)
+## 4. Le pont (`src/services/bridge/`)
 
-C'est la pièce importante de l'architecture. **Aucune page ne parle directement
-à Firebase ou à Electron** : toutes passent par une interface unique.
+Aucune page ne parle directement à Firebase : toutes passent par une interface
+unique. Changer de transport ne change aucune page.
 
 ```
-Page  →  useBridge()  →  Transport  →  (aujourd'hui) MockTransport
-                                    →  (demain)      FirebaseTransport
+Page → useBridge() → Transport → MockTransport      (simulation)
+                              → FirebaseTransport   (réel)
 ```
 
 | Fichier | Rôle |
 |---|---|
-| `types.ts` | **Le contrat** : forme de l'instantané publié par Electron et liste des commandes possibles. C'est ce fichier qu'il faudra reproduire côté Electron. |
-| `commands.ts` | Fabrique une commande complète (identifiant unique, horodatage, libellé). |
-| `BridgeContext.ts` | Le contexte React (séparé du composant, pour un rechargement à chaud propre). |
-| `BridgeProvider.tsx` | Garde l'état (connexion, instantané, historique des commandes) et le distribue à toute l'application. |
-| `MockTransport.ts` | **Simulation** : joue le rôle d'Electron sans réseau. Applique les commandes sur un instantané local et le republie. |
-| `FirebaseTransport.ts` | Emplacement réservé, avec le mode d'emploi en commentaire. Rien à écrire ailleurs le jour venu. |
-| `createTransport.ts` | Le seul endroit où l'on choisit l'implémentation. |
+| `types.ts` | **Le contrat.** Forme de l'instantané publié par la Suite PSE et liste des commandes. À respecter des deux côtés. |
+| `commands.ts` | Fabrique une commande (identifiant unique, horodatage, libellé). |
+| `BridgeContext.ts` / `BridgeProvider.tsx` | État partagé : connexion, compte, instantané, historique. |
+| `MockTransport.ts` | Simulation : applique les commandes sur un instantané local. |
+| `FirebaseTransport.ts` | Réel : Authentication + Firestore, en temps réel. |
+| `firebaseConfig.ts` | Lecture de la configuration et emplacements des données. |
+| `createTransport.ts` | Le seul endroit où l'implémentation est choisie. |
 
-### Modèle d'échange prévu
+### Modèle d'échange
 
 ```
-Electron  ──publie──▶  instantané (état courant)   ──▶  téléphone
-téléphone ──envoie──▶  commande (id unique)        ──▶  Electron
-Electron  ──accuse──▶  commande.statut = appliquée + nouvel instantané
+Suite PSE ──publie──▶ postes/{uid}                  (instantané)
+téléphone ──écrit───▶ commandes/{uid}/file/{cmdId}  (commande)
+Suite PSE ──répond──▶ la même commande, statut = appliquée, puis republie
 ```
 
-Electron reste la **source de vérité**. Le téléphone ne modifie jamais les
-données directement : il envoie des commandes idempotentes (rejouables sans
-risque grâce à leur identifiant unique).
+La Suite PSE reste la **source de vérité**. Le téléphone ne modifie jamais les
+données directement : il envoie des commandes portant un identifiant unique,
+que la Suite PSE mémorise — recevoir deux fois la même commande ne la joue
+qu'une fois.
 
-### Commandes déjà définies
+### Ce que le poste sait faire
 
-`classe.selectionner`, `cours.selectionner`, `seance.demarrer`,
-`seance.etape.suivante`, `seance.etape.precedente`, `seance.pause.basculer`,
-`seance.corrige.basculer`, `seance.valider`, `seance.enregistrer`,
-`progression.marquer`, `document.ouvrir`.
+Chaque instantané publie un bloc `capacites` (projection, progression, agenda,
+actions). Le téléphone désactive tout seul les boutons dont la fonction n'est
+pas disponible sur le poste, au lieu d'envoyer des commandes qui échoueraient.
+L'onglet *Synchronisation* affiche cet état.
 
----
+### Commandes définies
 
-## 5. Quand viendra Firebase (pas maintenant)
-
-1. `npm install firebase`
-2. `cp .env.example .env.local` puis renseigner les valeurs
-   (`.env.local` est ignoré par Git).
-3. Écrire le corps des méthodes de `FirebaseTransport.ts` (le mode d'emploi est
-   dans le fichier).
-4. Passer `VITE_TRANSPORT=firebase` dans `.env.local`.
-
-**Aucune page n'aura à être modifiée.**
+`projection.ouvrir`, `projection.etape.suivante`, `projection.etape.precedente`,
+`projection.etape.aller`, `projection.corrige.basculer`,
+`projection.focus.basculer`, `projection.document.afficher`,
+`seance.statut`, `seance.remise`, `seance.memo`,
+`action.creer`, `action.terminer`, `note.rapide`.
 
 ---
 
-## 6. Sécurité
+## 5. Activer Firebase (quand vous le déciderez)
 
-- Aucun mot de passe, clé privée, jeton GitHub ou identifiant dans le code.
-- Aucune donnée d'élève réelle : `src/data/demo.ts` ne contient que des groupes
-  fictifs (« Groupe A », « Groupe B »…).
-- Les futurs secrets passeront par `.env.local`, ignoré par Git
-  (voir `.gitignore`).
+1. Console Firebase → créer un projet.
+2. **Authentication** → activer *E-mail / mot de passe* → créer **un** compte
+   enseignant. Ce même compte servira au téléphone et à la Suite PSE.
+3. **Firestore Database** → créer la base → onglet *Règles* → coller le contenu
+   de `firestore.rules` → publier.
+4. **Paramètres du projet → Vos applications → Web** → copier la configuration.
+5. Dans le projet :
+   ```bash
+   cp .env.example .env.local
+   ```
+   renseigner les quatre valeurs `VITE_FIREBASE_*` et mettre
+   `VITE_TRANSPORT=firebase`.
+6. Relancer `npm run dev` : l'onglet *Synchronisation* affiche un formulaire de
+   connexion.
+
+`.env.local` n'est jamais versionné. Les clés « Web » de Firebase sont publiques
+par conception : la sécurité vient des règles Firestore, qui n'autorisent chaque
+compte qu'à ses propres documents.
 
 ---
 
-## 7. Mise en ligne (étape ultérieure)
+## 6. Côté Suite PSE
 
-Rien n'est configuré pour GitHub pour l'instant. Le moment venu, le dépôt
-`Orbelys/commande` sera relié via GitHub Desktop, et `vite.config.ts` prévoit
-déjà une variable `VITE_BASE` pour servir le site depuis un sous-dossier.
+Le dossier `electron/` contient le module qui publie l'instantané et applique
+les commandes, ainsi que la notice d'installation :
 
-Deux points à traiter à ce moment-là (pas avant) :
+- `pse-mobile-bridge.js` — à copier dans `EDITEUR/`, à charger depuis
+  `cours.html` et `capa.html` (ce sont elles qui ouvrent la fenêtre de
+  projection).
+- `PATCH-suite-pse.md` — les trois ajouts à faire, dont deux petits ajouts de
+  méthodes (`P.etat()` dans `projection.html`, `slotsForDate` et `setSlot` dans
+  `progression-core.js`).
 
-- **Sous-dossier** : sur GitHub Pages l'adresse sera `…/commande/`, donc il
-  faudra construire avec `VITE_BASE=/commande/ npm run build`.
+Le module se contrôle **sans réseau** avant tout branchement, depuis la console
+de la fenêtre `cours.html` :
+
+```js
+window.PSE_MOBILE.capacites()
+window.PSE_MOBILE.construireInstantane()
+```
+
+Rappel : une modification dans `EDITEUR/` n'arrive dans l'application qu'après
+`npm run dist:local`.
+
+---
+
+## 7. Confidentialité et sécurité
+
+- Aucun mot de passe, clé privée, jeton ou identifiant dans le code.
+- **Aucun nom d'élève ne circule.** L'instantané ne contient que des intitulés
+  de cours, de classes, de créneaux et d'actions — pas de MOPPS, pas de donnée
+  de santé, pas d'aménagement, pas d'adresse. Cette règle est écrite en tête du
+  module Electron : ne pas ajouter de champ nominatif sans la revoir.
+- `src/data/demo.ts` ne contient que des groupes fictifs (« Groupe A »…).
+- Les identifiants Firebase de la Suite PSE doivent passer par `safeStorage`
+  d'Electron, jamais par un fichier en clair.
+
+---
+
+## 8. Mise en ligne (étape ultérieure)
+
+Le dépôt privé est `orbelys/commande`. Deux points à traiter le moment venu :
+
+- **Sous-dossier** : sur GitHub Pages l'adresse sera `…/commande/`, donc
+  construire avec `VITE_BASE=/commande/ npm run build`.
 - **Adresses directes** : un hébergement statique renvoie une erreur 404 si l'on
-  ouvre directement `/cours`. La parade habituelle est de copier `index.html`
-  en `404.html` dans `dist/`. En local, le serveur de développement gère déjà
-  ce cas.
+  ouvre directement `/progression`. La parade habituelle est de copier
+  `index.html` en `404.html` dans `dist/`. En local, le serveur de développement
+  gère déjà ce cas.

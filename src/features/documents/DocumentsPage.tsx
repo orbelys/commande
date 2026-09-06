@@ -1,42 +1,54 @@
 import Card from '../../components/ui/Card'
 import PageHeader from '../../components/ui/PageHeader'
-import ListRow from '../../components/ui/ListRow'
 import Badge from '../../components/ui/Badge'
+import ListRow from '../../components/ui/ListRow'
 import EmptyState from '../../components/ui/EmptyState'
 import { useBridge } from '../../hooks/useBridge'
-import { dateCourte } from '../../lib/format'
+import { useProjection } from '../../hooks/useProjection'
 
-const TYPES = {
-  cours: 'Cours',
-  evaluation: 'Évaluation',
-  fiche: 'Fiche',
-  ressource: 'Ressource',
-} as const
-
+/**
+ * Documents du cours projeté : les afficher ou les masquer à distance,
+ * pour ne montrer aux élèves que ce qui doit l'être.
+ */
 export default function DocumentsPage() {
-  const { snapshot, envoyer, status } = useBridge()
-  const horsLigne = status !== 'online'
-  const docs = snapshot?.documents ?? []
+  const { envoyer } = useBridge()
+  const { projection, disponible } = useProjection()
+
+  if (!projection) {
+    return (
+      <>
+        <PageHeader titre="Documents" detail="Afficher ou masquer les documents projetés" />
+        <Card>
+          <EmptyState
+            titre="Aucun cours projeté"
+            detail="Les documents apparaissent dès qu’un cours est projeté depuis la Suite PSE."
+          />
+        </Card>
+      </>
+    )
+  }
 
   return (
     <>
-      <PageHeader titre="Documents" detail="Demander à Electron d’ouvrir un document" />
+      <PageHeader titre="Documents" detail={projection.coursTitre} />
       <Card padding={false}>
-        {docs.length === 0 ? (
-          <EmptyState titre="Aucun document" />
+        {projection.documents.length === 0 ? (
+          <EmptyState titre="Aucun document" detail="Ce cours ne contient pas de document." />
         ) : (
-          docs.map((d) => {
-            const classe = snapshot?.classes.find((c) => c.id === d.classeId)
-            return (
-              <ListRow
-                key={d.id}
-                titre={d.titre}
-                sousTitre={`${classe?.nom ?? 'Toutes classes'} · maj ${dateCourte(d.maj)}`}
-                droite={<Badge>{TYPES[d.type]}</Badge>}
-                onClick={horsLigne ? undefined : () => envoyer('document.ouvrir', { documentId: d.id })}
-              />
-            )
-          })
+          projection.documents.map((d) => (
+            <ListRow
+              key={d.idx}
+              titre={d.label}
+              sousTitre={d.visible ? 'Visible par les élèves' : 'Masqué'}
+              droite={<Badge ton={d.visible ? 'ok' : 'neutre'}>{d.visible ? 'Affiché' : 'Masqué'}</Badge>}
+              onClick={
+                disponible
+                  ? () =>
+                      envoyer('projection.document.afficher', { idx: d.idx, visible: !d.visible })
+                  : undefined
+              }
+            />
+          ))
         )}
       </Card>
     </>

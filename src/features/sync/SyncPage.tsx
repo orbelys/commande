@@ -1,3 +1,4 @@
+import { useState, type FormEvent } from 'react'
 import Card from '../../components/ui/Card'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
@@ -7,69 +8,182 @@ import { depuis } from '../../lib/format'
 import styles from './SyncPage.module.css'
 
 export default function SyncPage() {
-  const { status, snapshot, transportId, transportLibelle, connecter, deconnecter, commandes } =
-    useBridge()
+  const {
+    status,
+    snapshot,
+    transportId,
+    transportLibelle,
+    authRequise,
+    session,
+    erreur,
+    connecter,
+    deconnecter,
+    seDeconnecter,
+    commandes,
+  } = useBridge()
 
-  const enAttente = commandes.filter((c) => c.statut !== 'appliquee' && c.statut !== 'echouee').length
+  const enAttente = commandes.filter(
+    (c) => c.statut !== 'appliquee' && c.statut !== 'echouee',
+  ).length
+  const capacites = snapshot?.capacites
 
   return (
     <>
-      <PageHeader titre="Synchronisation" detail="État du lien avec l’application Electron" />
+      <PageHeader titre="Synchronisation" detail="État du lien avec la Suite PSE" />
+
+      {erreur && (
+        <Card>
+          <p className={styles.erreur}>{erreur}</p>
+        </Card>
+      )}
+
+      {authRequise && !session && <FormulaireConnexion />}
 
       <Card titre="Lien Electron">
         <dl className={styles.liste}>
-          <div className={styles.ligne}>
-            <dt>État</dt>
-            <dd>
-              <Badge ton={status === 'online' ? 'ok' : status === 'connecting' ? 'attention' : 'neutre'}>
-                {status === 'online' ? 'Connecté' : status === 'connecting' ? 'Connexion...' : 'Hors ligne'}
-              </Badge>
-            </dd>
-          </div>
-          <div className={styles.ligne}>
-            <dt>Transport</dt>
-            <dd>{transportLibelle}</dd>
-          </div>
-          <div className={styles.ligne}>
-            <dt>Poste</dt>
-            <dd>{snapshot?.appareil ?? '—'}</dd>
-          </div>
-          <div className={styles.ligne}>
-            <dt>Dernier instantané</dt>
-            <dd>{depuis(snapshot?.majA ?? null)}</dd>
-          </div>
-          <div className={styles.ligne}>
-            <dt>Commandes en cours</dt>
-            <dd>{enAttente}</dd>
-          </div>
+          <Ligne label="État">
+            <Badge ton={status === 'online' ? 'ok' : status === 'connecting' ? 'attention' : 'neutre'}>
+              {status === 'online' ? 'Connecté' : status === 'connecting' ? 'Connexion…' : 'Hors ligne'}
+            </Badge>
+          </Ligne>
+          <Ligne label="Transport">{transportLibelle}</Ligne>
+          {session && <Ligne label="Compte">{session.email}</Ligne>}
+          <Ligne label="Poste">{snapshot?.poste ?? '—'}</Ligne>
+          <Ligne label="Dernier instantané">{depuis(snapshot?.majA ?? null)}</Ligne>
+          <Ligne label="Commandes en cours">{String(enAttente)}</Ligne>
         </dl>
 
         <div className={styles.actions}>
-          <Button
-            variante="principal"
-            pleineLargeur
-            disabled={status !== 'offline'}
-            onClick={connecter}
-          >
-            Se connecter
-          </Button>
-          <Button pleineLargeur disabled={status === 'offline'} onClick={deconnecter}>
-            Se déconnecter
-          </Button>
+          {authRequise && session ? (
+            <Button pleineLargeur onClick={() => void seDeconnecter()}>
+              Se déconnecter du compte
+            </Button>
+          ) : (
+            <>
+              <Button
+                variante="principal"
+                pleineLargeur
+                disabled={status !== 'offline'}
+                onClick={connecter}
+              >
+                Se connecter
+              </Button>
+              <Button pleineLargeur disabled={status === 'offline'} onClick={deconnecter}>
+                Se déconnecter
+              </Button>
+            </>
+          )}
         </div>
       </Card>
+
+      {capacites && (
+        <Card titre="Ce que ce poste sait faire">
+          <dl className={styles.liste}>
+            <Ligne label="Projection en classe">
+              <Badge ton={capacites.projection ? 'ok' : 'neutre'}>
+                {capacites.projection ? 'Disponible' : 'Indisponible'}
+              </Badge>
+            </Ligne>
+            <Ligne label="Progression">
+              <Badge ton={capacites.progression ? 'ok' : 'neutre'}>
+                {capacites.progression ? 'Disponible' : 'Indisponible'}
+              </Badge>
+            </Ligne>
+            <Ligne label="Agenda du jour">
+              <Badge ton={capacites.agenda ? 'ok' : 'neutre'}>
+                {capacites.agenda ? 'Disponible' : 'Indisponible'}
+              </Badge>
+            </Ligne>
+            <Ligne label="Actions">
+              <Badge ton={capacites.actions ? 'ok' : 'neutre'}>
+                {capacites.actions ? 'Disponible' : 'Indisponible'}
+              </Badge>
+            </Ligne>
+          </dl>
+          <p className={styles.note}>
+            Les boutons du téléphone se désactivent tout seuls quand la fonction correspondante
+            n’est pas disponible sur le poste.
+          </p>
+        </Card>
+      )}
 
       <Card titre="À savoir">
         <p className={styles.note}>
           {transportId === 'mock'
-            ? 'Le lien avec Electron est actuellement simulé : les boutons ci-dessus permettent de tester l’interface hors ligne et connectée. Aucune donnée ne quitte ce navigateur.'
-            : 'Transport Firebase sélectionné mais pas encore implémenté.'}
+            ? 'Le lien est actuellement simulé : l’interface fonctionne avec des données fictives, aucune donnée ne quitte ce navigateur. Pour passer en réel, renseignez .env.local et mettez VITE_TRANSPORT=firebase.'
+            : 'Transport Firebase actif. Le téléphone lit l’instantané publié par le poste et lui envoie des commandes.'}
         </p>
         <p className={styles.note}>
-          Quand Firebase sera branché, seule la couche <code>services/bridge</code> changera : les
-          pages resteront identiques.
+          Aucun nom d’élève, aucune donnée de santé ni aucun aménagement ne transite par le
+          téléphone : l’instantané ne contient que des intitulés de cours, de classes et de créneaux.
         </p>
       </Card>
     </>
+  )
+}
+
+function Ligne({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className={styles.ligne}>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  )
+}
+
+/** Connexion au compte partagé entre le téléphone et Electron. */
+function FormulaireConnexion() {
+  const { seConnecter } = useBridge()
+  const [email, setEmail] = useState('')
+  const [motDePasse, setMotDePasse] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const [echec, setEchec] = useState<string | null>(null)
+
+  async function envoyer(e: FormEvent) {
+    e.preventDefault()
+    setEnCours(true)
+    setEchec(null)
+    try {
+      await seConnecter(email.trim(), motDePasse)
+    } catch (err) {
+      setEchec(err instanceof Error ? err.message : String(err))
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <Card titre="Connexion">
+      <form onSubmit={envoyer} className={styles.form}>
+        <label className={styles.champ}>
+          <span>Adresse e-mail</span>
+          <input
+            type="email"
+            autoComplete="username"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </label>
+        <label className={styles.champ}>
+          <span>Mot de passe</span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            required
+            value={motDePasse}
+            onChange={(e) => setMotDePasse(e.target.value)}
+          />
+        </label>
+        {echec && <p className={styles.erreur}>{echec}</p>}
+        <Button type="submit" variante="principal" pleineLargeur disabled={enCours}>
+          {enCours ? 'Connexion…' : 'Se connecter'}
+        </Button>
+      </form>
+      <p className={styles.note}>
+        Le même compte est utilisé par le téléphone et par la Suite PSE. Il n’est enregistré nulle
+        part dans le code.
+      </p>
+    </Card>
   )
 }

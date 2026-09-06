@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppShell from './components/layout/AppShell'
 import DashboardPage from './features/dashboard/DashboardPage'
-import CoursPage from './features/cours/CoursPage'
+import ProjectionPage from './features/projection/ProjectionPage'
 import ClassesPage from './features/classes/ClassesPage'
 import CommandesPage from './features/commandes/CommandesPage'
 import ProgressionPage from './features/progression/ProgressionPage'
@@ -17,7 +17,7 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route path="/" element={<DashboardPage />} />
-        <Route path="/cours" element={<CoursPage />} />
+        <Route path="/projection" element={<ProjectionPage />} />
         <Route path="/classes" element={<ClassesPage />} />
         <Route path="/commandes" element={<CommandesPage />} />
         <Route path="/progression" element={<ProgressionPage />} />
