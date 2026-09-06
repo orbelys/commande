@@ -227,28 +227,41 @@ Rappel : une modification dans `EDITEUR/` n'arrive dans l'application qu'après
 
 ---
 
-## 8. Mise en ligne — c'est fait
+## 8. Mise en ligne
 
-Le site est en ligne : **https://mapse.fr/commande/**
+Le site est servi par **GitHub Pages, depuis ce dépôt** :
 
-GitHub Pages n'est pas disponible sur un dépôt privé avec la formule gratuite,
-donc la version construite est publiée dans le dépôt public
-`Preventionsanteenvironnement/PSE` (celui de mapse.fr), sous-dossier
-`commande/`. Le code source, lui, reste privé dans `orbelys/commande`.
+```
+https://orbelys.github.io/commande/
+```
 
-La page est publiquement accessible mais **sans identifiants elle n'affiche
-qu'un écran de connexion** : aucune donnée n'est lisible.
+La version construite est versionnée dans `docs/` — c'est ce dossier que Pages
+publie. Le reste du dépôt (le code source) n'est pas servi.
+
+### Activer Pages — une seule fois
+
+À faire avec le compte **studio-des-projets** (propriétaire d'orbelys ; un
+collaborateur en écriture n'a pas le droit d'activer Pages) :
+
+1. `https://github.com/orbelys/commande` → onglet **Settings**
+2. Menu de gauche → **Pages**
+3. *Build and deployment* → *Source* : **Deploy from a branch**
+4. *Branch* : **main**, dossier : **/docs** → **Save**
+
+Si GitHub indique que Pages n'est pas disponible pour un dépôt privé, deux
+possibilités : rendre le dépôt public (le code ne contient aucun secret — les
+clés Web Firebase sont publiques par conception et `.env.local` n'est pas
+versionné), ou passer l'organisation sur une formule payante.
 
 ### Publier une nouvelle version
 
 ```bash
-cd /Users/brahms/Documents/GitHub/commande && npm run deploy
+npm run deploy
 ```
 
-Cela construit le site et le copie dans `PSE/commande/`. Il reste à publier le
-dépôt **PSE** dans GitHub Desktop (Commit puis Push) ; la mise en ligne prend
-une à deux minutes.
+Puis Commit et Push dans GitHub Desktop. La mise en ligne prend une à deux
+minutes.
 
 Deux détails techniques : les adresses utilisent un `#`
-(`…/commande/#/progression`) pour ne pas dépendre du `404.html` de mapse.fr, et
+(`…/commande/#/progression`), ce qui évite d'avoir à gérer une page 404, et
 `VITE_BASE=/commande/` place correctement les fichiers du sous-dossier.
