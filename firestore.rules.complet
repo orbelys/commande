@@ -1,0 +1,475 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function validCode(code) {
+      return code is string && code.size() >= 4 && code.size() <= 12;
+    }
+
+    match /resultats/{eleveCode}/copies/{docId} {
+      allow read: if true;
+      allow create: if validCode(eleveCode);
+      allow update: if validCode(eleveCode);
+      allow delete: if request.auth != null;
+    }
+
+    match /{path=**}/copies/{docId} {
+      allow read: if true;
+      allow delete: if request.auth != null;
+    }
+
+    match /resultats/{eleveCode}/evaluations/{docId} {
+      allow read: if true;
+      allow create, update: if request.auth != null || true;
+      allow delete: if request.auth != null;
+    }
+
+    match /{path=**}/evaluations/{docId} {
+      allow read: if true;
+      allow create, update: if request.auth != null || true;
+      allow delete: if request.auth != null;
+    }
+
+    match /resultats/{eleveCode}/suivi/{docId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null;
+    }
+
+    match /resultats/{eleveCode}/stats/{docId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null;
+    }
+
+    match /resultats/{eleveCode}/objectifs/{docId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null;
+    }
+
+    match /consultations/{eleveCode} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null;
+    }
+
+    match /sessions/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /library/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /bibliotheque/{docId} {
+      allow read, write: if true;
+    }
+
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /votes/{docId} {
+      allow read: if request.auth != null;
+      allow create: if true;
+    }
+
+    match /statistiques_usage/{docId} {
+      allow read: if request.auth != null;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    match /alertes_doublons/{docId} {
+      allow read: if request.auth != null;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    match /demandes_2chance/{docId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+
+    match /quiz_live_config/{docId} {
+      allow read, write: if true;
+    }
+    match /quiz_live_reponses/{docId} {
+      allow read, write: if true;
+    }
+    match /quiz_live_presence/{docId} {
+      allow read, write: if true;
+    }
+
+    match /vraifaux_etat/{docId} {
+      allow read, write: if true;
+    }
+    match /vraifaux_reponses/{docId} {
+      allow read, write: if true;
+    }
+    match /vraifaux_playlist/{docId} {
+      allow read, write: if true;
+    }
+
+    match /quiz_emo_config/{docId} {
+      allow read, write: if true;
+    }
+    match /quiz_emo_presence/{docId} {
+      allow read, write: if true;
+    }
+    match /quiz_emo_reponses/{docId} {
+      allow read, write: if true;
+    }
+
+    match /nuage_etat/{docId} {
+      allow read, write: if true;
+    }
+    match /nuage_attente/{docId} {
+      allow read, write: if true;
+    }
+    match /nuage_mots/{docId} {
+      allow read, write: if true;
+    }
+    match /nuage_presence/{docId} {
+      allow read, write: if true;
+    }
+
+    match /mindmap_config/{docId} {
+      allow read, write: if true;
+    }
+    match /mindmap_ideas/{docId} {
+      allow read, write: if true;
+    }
+    match /mindmap_presence/{docId} {
+      allow read, write: if true;
+    }
+
+    match /qqoqcp_config/{docId} {
+      allow read, write: if true;
+    }
+    match /qqoqcp_ideas/{docId} {
+      allow read, write: if true;
+    }
+    match /qqoqcp_items/{docId} {
+      allow read, write: if true;
+    }
+    match /qqoqcp_presence/{docId} {
+      allow read, write: if true;
+    }
+
+    match /ishikawa_config/{docId} {
+      allow read, write: if true;
+    }
+    match /ishikawa_ideas/{docId} {
+      allow read, write: if true;
+    }
+    match /ishikawa_items/{docId} {
+      allow read, write: if true;
+    }
+    match /ishikawa_presence/{docId} {
+      allow read, write: if true;
+    }
+
+    match /itamami_config/{docId} {
+      allow read, write: if true;
+    }
+    match /itamami_ideas/{docId} {
+      allow read, write: if true;
+    }
+    match /itamami_items/{docId} {
+      allow read, write: if true;
+    }
+    match /itamami_presence/{docId} {
+      allow read, write: if true;
+    }
+
+    match /pad_config/{docId} {
+      allow read, write: if true;
+    }
+    match /pad_ideas/{docId} {
+      allow read, write: if true;
+    }
+    match /pad_items/{docId} {
+      allow read, write: if true;
+    }
+    match /pad_presence/{docId} {
+      allow read, write: if true;
+    }
+
+    match /postit_config/{docId} {
+      allow read, write: if true;
+    }
+    match /postit_ideas/{docId} {
+      allow read, write: if true;
+    }
+    match /postit_board/{docId} {
+      allow read, write: if true;
+    }
+    match /postit_presence/{docId} {
+      allow read, write: if true;
+    }
+
+    match /dilemme_config/{docId} {
+      allow read, write: if true;
+    }
+    match /dilemme_presence/{docId} {
+      allow read, write: if true;
+    }
+    match /dilemme_reponses/{docId} {
+      allow read, write: if true;
+    }
+
+    match /roue_config/{docId} {
+      allow read, write: if true;
+    }
+    match /roue_presence/{docId} {
+      allow read, write: if true;
+    }
+    match /roue_reponses/{docId} {
+      allow read, write: if true;
+    }
+
+    match /meteo_config/{docId} {
+      allow read, write: if true;
+    }
+    match /meteo_finale_v2/{docId} {
+      allow read, write: if true;
+    }
+
+    match /stress_config/{docId} {
+      allow read, write: if true;
+    }
+    match /stress_presence/{docId} {
+      allow read, write: if true;
+    }
+    match /stress_reponses/{docId} {
+      allow read, write: if true;
+    }
+
+    match /proust_config/{docId} {
+      allow read, write: if true;
+    }
+    match /proust_presence/{docId} {
+      allow read, write: if true;
+    }
+    match /proust_reponses/{docId} {
+      allow read, write: if true;
+    }
+
+    match /quiz_banque/{docId} {
+      allow read, write: if true;
+    }
+    match /eval_banque/{docId} {
+      allow read, write: if true;
+    }
+    match /eval_banque_v2/{docId} {
+      allow read, write: if true;
+    }
+    match /eval_banque_capa/{docId} {
+      allow read, write: if true;
+    }
+    match /eval_sessions/{docId} {
+      allow read, write: if true;
+    }
+    match /eval_reponses/{docId} {
+      allow read, write: if true;
+    }
+    match /exercices_banque/{docId} {
+      allow read, write: if true;
+    }
+    match /parcours_banque/{docId} {
+      allow read, write: if true;
+    }
+    match /lire_ecrire_banque/{docId} {
+      allow read, write: if true;
+    }
+    match /progression_prevue/{docId} {
+      allow read, write: if request.auth != null;
+    }
+    match /progression_logs/{docId} {
+      allow read, write: if request.auth != null;
+    }
+    match /progression_config/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ⭐ NOUVEAU : Cafés Parents (sessions interactives anonymes)
+    match /cafes/{cafeId} {
+      allow read, write: if true;
+      match /participants/{pid} {
+        allow read, write: if true;
+      }
+      match /votes/{vid} {
+        allow read, write: if true;
+      }
+    }
+
+    // ⭐ NOUVEAU : Sondage CPS — besoins ateliers communication (terminales bac pro)
+    // Élèves : création anonyme (envoi de leur sondage)
+    // Prof : lecture / modification / suppression (auth Google)
+    match /sondage_cps/{docId} {
+      allow create: if true;
+      allow read: if request.auth != null;
+      allow update, delete: if request.auth != null;
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — sondages de disponibilités entre enseignants
+    // (portail coordination-pedagogie/reunions/). Données pseudonymes :
+    // initiales ou matière uniquement, AUCUNE donnée élève ici.
+    match /coordination_reunions/{pollId} {
+      allow read, create, update, delete: if true;
+      match /reponses/{respId} {
+        allow read, write: if true;
+      }
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — grilles d'observation GEVA-Sco (ESS)
+    // (portail coordination-pedagogie/gevasco/). Données pseudonymes :
+    // matière (pas le nom du prof) + code élève (pas le nom de l'élève) + cotation A/B/C/D.
+    // AUCUN lien avec les collections élèves du cockpit (resultats, copies…).
+    match /coordination_gevasco/{docId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — rendez-vous de visite PFMP avec les tuteurs
+    // (portail coordination-pedagogie/rdv/). Données pseudonymes :
+    // initiales élève (jamais le nom) + nom du tuteur/structure professionnels.
+    // Accès par lien unique (identifiant non devinable), sans compte pour le tuteur.
+    // AUCUN lien avec les collections élèves du cockpit (resultats, copies…).
+    match /coordination_rdv/{rdvId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Coordination & Pédagogie — Atelier projet (portail coordination-pedagogie/projets/).
+    // Sous-collections : "contributions" + "presence" (présence en direct).
+    match /coordination_projets/{projetId} {
+      allow read, create, update, delete: if true;
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Mur d'idées (portail coordination-pedagogie/murs/).
+    // Données pseudonymes : initiales + rôle (jamais de nom). Sous-collection "idees".
+    match /coordination_murs/{murId} {
+      allow read, create, update, delete: if true;
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Carte mentale (portail coordination-pedagogie/cartes/).
+    // Données pseudonymes : initiales + rôle (jamais de nom). Sous-collection "noeuds".
+    match /coordination_cartes/{carteId} {
+      allow read, create, update, delete: if true;
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Chef-d'œuvre CAP (coordination-pedagogie/chef-doeuvre/).
+    // Dossier de pilotage sur 2 ans, un par promotion. Données pseudonymes :
+    // initiales + rôle, groupes anonymes (Groupe A…), jamais de nom d'élève.
+    // Sous-collection "elements" (jalons, actions, disciplines, acteurs, critères…).
+    match /coordination_chefdoeuvre/{cdoId} {
+      allow read, create, update, delete: if true;
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Monter un projet / canevas (coordination-pedagogie/canevas/).
+    // Canevas de projet ouvert : tout le monde écrit. Données pseudonymes :
+    // initiales + rôle (jamais de nom). Sous-collection "notes".
+    match /coordination_canevas/{canevasId} {
+      allow read, create, update, delete: if true;
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Sondage express (coordination-pedagogie/sondages/).
+    // Vote anonyme de l'équipe, résultats en direct. Aucune donnée élève.
+    // Sous-collection "votes".
+    match /coordination_sondages/{sondageId} {
+      allow read, create, update, delete: if true;
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Planning AESH (coordination-pedagogie/planning-psr/).
+    // Messagerie intervenants ↔ coordinateur. Données pseudonymes : sigle AESH (jamais de nom),
+    // texte libre. AUCUN lien avec les collections élèves du cockpit (resultats, copies…).
+    match /coordination_planning_messages/{msgId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Planning AESH (coordination-pedagogie/planning-aesh/).
+    // Qui accompagne qui / quand / où. Données pseudonymes : initiales AESH + CODE élève
+    // (jamais le nom complet). AUCUN lien avec les collections élèves du cockpit.
+    match /coordination_planning_aesh/{docId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Enquête AESH (coordination-pedagogie/enquete-aesh/).
+    // Sondage anonyme des besoins de l'équipe AESH. Aucune donnée personnelle ni élève.
+    match /coordination_enquete_aesh/{docId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Espace EDT de l'équipe AESH
+    // (coordination-pedagogie/edt-aesh/). Chaque AESH pose lui-même ses créneaux
+    // depuis son téléphone, avec un code à 4 chiffres. Données pseudonymes :
+    // prénom + code de l'intervenant, classe / matière / salle des cours.
+    // AUCUN nom d'élève, d'enseignant ni d'établissement. AUCUN lien avec les
+    // collections élèves du cockpit (resultats, copies…).
+    match /coordination_edt_aesh_intervenants/{docId} {
+      allow read, create, update, delete: if true;
+    }
+    match /coordination_edt_aesh_saisies/{docId} {
+      allow read, create, update, delete: if true;
+    }
+    match /coordination_edt_aesh_retours/{docId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Parcours PFMP (coordination-pedagogie/parcours-pfmp/).
+    // Atelier d'équipe : on construit le parcours PFMP ensemble (anonyme, identifiant libre).
+    // Aucune donnée élève. Sous-collections "etapes" + "presence".
+    match /coordination_parcours/{parcoursId} {
+      allow read, create, update, delete: if true;
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // ⭐ NOUVEAU : Coordination & Pédagogie — Compteur de fréquentation anonyme du portail
+    // (coordination-pedagogie/, mouchard pulse.js → cockpit CockpitPSE/frequentation.html).
+    // Comptes anonymes uniquement : vues, visiteurs, pages consultées. AUCUNE donnée personnelle ni élève.
+    match /analytics/{site}/jours/{jour} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null;
+      
+    }
+
+    // ⭐ NOUVEAU : Télécommande mobile de la Suite PSE (dépôt orbelys/commande).
+    // La Suite PSE publie l'état du poste dans postes/{uid} ; le téléphone le lit
+    // et dépose ses commandes dans commandes/{uid}/file/{id}. Le nom du document
+    // est l'identifiant du compte enseignant : personne d'autre n'y accède, même
+    // en connaissant l'identifiant du projet.
+    // AUCUNE donnée élève ici : intitulés de cours, de classes et de créneaux
+    // uniquement. Pas de nom, pas de santé, pas d'aménagement.
+    match /postes/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /commandes/{uid}/file/{commandeId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
