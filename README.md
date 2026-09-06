@@ -141,11 +141,36 @@ L'onglet *Synchronisation* affiche cet état.
 
 ### Commandes définies
 
-`projection.ouvrir`, `projection.etape.suivante`, `projection.etape.precedente`,
-`projection.etape.aller`, `projection.corrige.basculer`,
-`projection.focus.basculer`, `projection.document.afficher`,
-`seance.statut`, `seance.remise`, `seance.memo`,
-`action.creer`, `action.terminer`, `note.rapide`.
+Projection : `projection.ouvrir`, `projection.etape.suivante`,
+`projection.etape.precedente`, `projection.etape.aller`,
+`projection.corrige.basculer`, `projection.focus.basculer`,
+`projection.document.afficher`.
+
+Minuteur projeté : `projection.minuteur.demarrer` (secondes),
+`projection.minuteur.pause`, `projection.minuteur.reprendre`,
+`projection.minuteur.arreter`.
+
+Progression : `seance.statut`, `seance.remise`, `seance.memo`.
+
+Actions : `action.creer`, `action.terminer`, `note.rapide`.
+
+### Les statuts, au mot près
+
+La Suite PSE emploie **« Réalisé »**, pas « Fait ». Le téléphone ne pose que
+`Prévu`, `En cours`, `Réalisé` et `Annulé` : les trois autres
+(`À terminer`, `Reporté`, `Non réalisé`) ouvrent la fenêtre de reprise sur
+l'ordinateur, qui demande où rattraper.
+
+### Ce qui suit l'heure
+
+`src/hooks/useHorloge.ts` réveille l'affichage toutes les 30 s et se
+resynchronise quand le téléphone sort de veille. `src/lib/seances.ts` situe
+chaque séance : à venir, imminente (moins de 20 min), en cours, passée — et
+signale celles dont l'heure est passée sans qu'aucune décision n'ait été prise.
+
+Attention aux dates : un jour « 2026-09-07 » se lit en UTC par défaut. Tout le
+code passe par des repères locaux, ou ancre la date à midi. Utiliser
+`toISOString()` sur une date locale fait reculer d'un jour dès 22 h.
 
 ---
 
