@@ -15,13 +15,13 @@ choisir une classe ou un cours.
 Une seule fois, pour installer les dépendances :
 
 ```bash
-cd /Users/brahms/Documents/commande && npm install
+cd /Users/brahms/Documents/GitHub/commande && npm install
 ```
 
 Puis, à chaque fois que vous voulez travailler :
 
 ```bash
-cd /Users/brahms/Documents/commande && npm run dev
+cd /Users/brahms/Documents/GitHub/commande && npm run dev
 ```
 
 Le navigateur s'ouvre sur **http://localhost:5173**. Toute modification d'un
@@ -32,7 +32,7 @@ Pour arrêter le serveur : `Ctrl + C` dans le Terminal.
 ### Tester sur votre iPhone (même réseau Wi-Fi)
 
 ```bash
-cd /Users/brahms/Documents/commande && npm run dev:lan
+cd /Users/brahms/Documents/GitHub/commande && npm run dev:lan
 ```
 
 Vite affiche alors une adresse « Network » du type `http://192.168.x.x:5173`.
