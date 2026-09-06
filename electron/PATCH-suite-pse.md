@@ -20,30 +20,23 @@ Sauvegardes créées à côté de chaque fichier, sous le nom
 
 1. Relancer `npm run dist:local` — sans cela, l'application ne voit pas ces
    modifications.
-2. Ouvrir un cours, cliquer sur **Projeter**.
-3. Dans la console de la fenêtre `cours.html` :
+2. Ouvrir la Suite PSE. Une **pastille grise « 📱 Télécommande — se connecter »**
+   apparaît en bas à gauche de la fenêtre du cours.
+3. Cliquer dessus, saisir l'adresse et le mot de passe du compte Firebase.
+   **Une seule fois** : la session est ensuite retenue par Firebase et la
+   liaison repart seule à chaque ouverture.
+4. La pastille passe au vert : « 📱 Télécommande active ». Le téléphone se
+   remplit.
 
-   ```js
-   PSE_MOBILE.ouvrirConnexion()
-   ```
+Cliquer sur la pastille verte propose de se déconnecter.
 
-   Un petit panneau demande l'adresse et le mot de passe du compte Firebase
-   (celui créé dans Authentication). Le mot de passe n'est **écrit nulle part** : il vit en
-   mémoire le temps de la session.
-
-4. Le téléphone doit alors afficher le poste, le cours projeté et la journée.
+Aucune console, aucune ligne à taper.
 
 ### Vérifier sans réseau, avant toute connexion
 
-```js
-PSE_MOBILE.capacites()             // ce que ce poste sait faire
-PSE_MOBILE.construireInstantane()  // exactement ce qui partirait
-```
-
-Relisez le résultat : il ne doit contenir **aucun nom d'élève**, aucune donnée
-de santé, aucun aménagement.
-
----
+Si vous voulez contrôler ce qui serait publié, la fonction reste disponible
+pour un développeur : `PSE_MOBILE.construireInstantane()`. Le résultat ne doit
+contenir **aucun nom d'élève**, aucune donnée de santé, aucun aménagement.
 
 ## Deux points à connaître
 

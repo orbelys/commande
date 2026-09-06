@@ -17,9 +17,12 @@
  * intitulés de cours, de classes et de créneaux. Ne pas ajouter de champ
  * nominatif sans revoir cette règle.
  *
- * SÉCURITÉ : aucune clé n'est écrite ici. La configuration Firebase et les
- * identifiants sont passés en argument de PSE_MOBILE.demarrer(), depuis un
- * stockage sûr (safeStorage d'Electron).
+ * SÉCURITÉ : aucun mot de passe n'est écrit ici ni stocké en clair. Il est
+ * saisi une seule fois dans le panneau de connexion ; ensuite, c'est la
+ * session Firebase (jeton renouvelable) qui prend le relais.
+ *
+ * UTILISATION : rien à taper. Une pastille apparaît en bas à gauche de la
+ * fenêtre ; on clique dessus pour se connecter la première fois.
  * ───────────────────────────────────────────────────────────── */
 /* global window, document */
 (function () {
@@ -49,7 +52,7 @@
   var fs = null;    // module Firestore
   var db = null;
   var uid = null;
-  var nomPoste = 'Suite PSE';
+  var nomPoste = 'Suite PSE';  /* précisé au démarrage */
   var timerPub = null;
 
   /* ══ 1. Accès à la fenêtre de projection ══════════════════
@@ -339,6 +342,21 @@
 
   /* ══ 5. Firebase ══════════════════════════════════════════ */
 
+  var sdk = null;   // { auth, authM, fsM }
+
+  async function chargerSdk() {
+    if (sdk) return sdk;
+    var SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+    var appM = await import(SDK + 'firebase-app.js');
+    var authM = await import(SDK + 'firebase-auth.js');
+    var fsM = await import(SDK + 'firebase-firestore.js');
+    var app = appM.getApps().length ? appM.getApp() : appM.initializeApp(CONFIG_PAR_DEFAUT);
+    fs = fsM;
+    db = fsM.getFirestore(app);
+    sdk = { auth: authM.getAuth(app), authM: authM, fsM: fsM };
+    return sdk;
+  }
+
   async function traiterCommande(ref, commande) {
     var vues = dejaAppliquees();
     var res = vues.indexOf(commande.id) >= 0 ? { ok: true } : appliquer(commande);
@@ -360,37 +378,19 @@
     timerPub = setTimeout(function () { publier().catch(function () {}); }, DEBOUNCE_PUBLICATION);
   }
 
-  /**
-   * Démarre le pont.
-   * @param {object} config       configuration Firebase (apiKey, authDomain, projectId, appId)
-   * @param {object} identifiants { email, motDePasse } — jamais écrits dans le code
-   * @param {object} options      { poste: 'Nom du poste' }
-   */
-  async function demarrer(config, identifiants, options) {
-    config = config || CONFIG_PAR_DEFAUT;
-    var SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
-    var appM = await import(SDK + 'firebase-app.js');
-    var authM = await import(SDK + 'firebase-auth.js');
-    var fsM = await import(SDK + 'firebase-firestore.js');
-    fs = fsM;
+  /* Une fois le compte connecté : publier, écouter les commandes, republier. */
+  var enMarche = false;
+  async function activer(utilisateur) {
+    uid = utilisateur.uid;
+    nomPoste = nomPosteAuto();
+    pastille('connecte', utilisateur.email || '');
+    if (enMarche) { await publier(); return; }
+    enMarche = true;
 
-    nomPoste = (options && options.poste) || nomPoste;
-    var app = appM.getApps().length ? appM.getApp() : appM.initializeApp(config);
-    var auth = authM.getAuth(app);
-    db = fsM.getFirestore(app);
-
-    var cred = await authM.signInWithEmailAndPassword(auth, identifiants.email, identifiants.motDePasse);
-    uid = cred.user.uid;
-
-    // a) publication initiale
     await publier();
 
-    // b) commandes en temps réel
-    fsM.onSnapshot(
-      fsM.query(
-        fsM.collection(db, COL_COMMANDES, uid, SOUS_FILE),
-        fsM.where('statut', '==', 'envoyee')
-      ),
+    fs.onSnapshot(
+      fs.query(fs.collection(db, COL_COMMANDES, uid, SOUS_FILE), fs.where('statut', '==', 'envoyee')),
       async function (snap) {
         var travail = [];
         snap.forEach(function (d) { travail.push(traiterCommande(d.ref, d.data())); });
@@ -401,20 +401,82 @@
       }
     );
 
-    // c) toute écriture locale dans la Suite PSE ⇒ republier
     window.addEventListener('pse-store-sync', publierBientot);
-
-    // d) filet de sécurité : republication régulière (changement de jour,
-    //    ouverture ou fermeture de la fenêtre de projection…)
     setInterval(function () { publier().catch(function () {}); }, 5 * 60000);
-
-    return { uid: uid, capacites: capacites() };
   }
 
-  /* ══ 6. Connexion : petit formulaire, mot de passe jamais stocké ══
-   * Electron n'implémente pas window.prompt : on injecte un panneau minimal.
-   * Le mot de passe vit dans la mémoire de la page le temps de la session et
-   * n'est écrit nulle part. */
+  /**
+   * Démarrage automatique, appelé au chargement de la page.
+   * Si une session Firebase existe déjà sur ce poste, la liaison repart seule :
+   * le mot de passe n'est demandé qu'une fois, au tout premier lancement.
+   */
+  async function demarrerAuto() {
+    var s;
+    try {
+      s = await chargerSdk();
+    } catch (e) {
+      pastille('erreur', String((e && e.message) || e));
+      return;
+    }
+    s.authM.onAuthStateChanged(s.auth, function (u) {
+      if (u) activer(u).catch(function (e) { pastille('erreur', String(e && e.message || e)); });
+      else { uid = null; pastille('deconnecte', ''); }
+    });
+  }
+
+  /** Connexion par identifiants (première fois seulement). */
+  async function connecter(email, motDePasse) {
+    var s = await chargerSdk();
+    await s.authM.signInWithEmailAndPassword(s.auth, email, motDePasse);
+  }
+
+  async function deconnecter() {
+    var s = await chargerSdk();
+    await s.authM.signOut(s.auth);
+    uid = null;
+    pastille('deconnecte', '');
+  }
+
+  /* ══ 6. Pastille et panneau de connexion ══════════════════
+   * Aucune console : un bouton visible en bas à gauche de la fenêtre. */
+
+  var LIBELLES_ETAT = {
+    connecte: '📱 Télécommande active',
+    deconnecte: '📱 Télécommande — se connecter',
+    erreur: '📱 Télécommande — problème'
+  };
+  var COULEURS_ETAT = {
+    connecte: '#1a7f52',
+    deconnecte: '#5c6470',
+    erreur: '#b3261e'
+  };
+
+  function pastille(etat, detail) {
+    var el = document.getElementById('pse-mobile-pastille');
+    if (!el) {
+      el = document.createElement('button');
+      el.id = 'pse-mobile-pastille';
+      el.type = 'button';
+      el.setAttribute('style',
+        'position:fixed;left:14px;bottom:14px;z-index:99998;border:0;border-radius:999px;' +
+        'padding:9px 15px;color:#fff;font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;' +
+        'box-shadow:0 3px 14px rgba(0,0,0,.28);cursor:pointer;opacity:.93');
+      el.onclick = function () {
+        if (uid) {
+          if (confirm('Télécommande connectée' + (el.dataset.detail ? ' (' + el.dataset.detail + ')' : '') +
+                      '.\n\nVoulez-vous vous déconnecter ?')) deconnecter();
+        } else {
+          ouvrirConnexion();
+        }
+      };
+      document.body.appendChild(el);
+    }
+    el.dataset.detail = detail || '';
+    el.textContent = LIBELLES_ETAT[etat] || LIBELLES_ETAT.deconnecte;
+    el.style.background = COULEURS_ETAT[etat] || COULEURS_ETAT.deconnecte;
+    el.title = detail || '';
+  }
+
   function ouvrirConnexion() {
     if (document.getElementById('pse-mobile-cnx')) return;
     var fond = document.createElement('div');
@@ -425,10 +487,10 @@
       'font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif');
     fond.innerHTML =
       '<form style="background:#fff;color:#14181f;padding:22px;border-radius:14px;' +
-      'width:min(380px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.3);display:grid;gap:12px">' +
-      '<strong style="font-size:17px">Télécommande mobile</strong>' +
-      '<div style="font-size:13px;color:#5c6470">Le compte est le même que sur le téléphone. ' +
-      'Le mot de passe n\'est enregistré nulle part.</div>' +
+      'width:min(400px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.3);display:grid;gap:12px">' +
+      '<strong style="font-size:17px">Télécommande sur le téléphone</strong>' +
+      '<div style="font-size:13px;color:#5c6470;line-height:1.45">Le même compte que sur le téléphone. ' +
+      'À taper une seule fois : la liaison repartira ensuite toute seule.</div>' +
       '<input id="pse-mobile-mail" type="email" placeholder="Adresse e-mail" autocomplete="username" required ' +
       'style="padding:11px;border:1px solid #d7dce3;border-radius:8px;font:inherit">' +
       '<input id="pse-mobile-mdp" type="password" placeholder="Mot de passe" autocomplete="current-password" required ' +
@@ -448,21 +510,29 @@
       e.preventDefault();
       var bouton = fond.querySelector('#pse-mobile-ok');
       bouton.disabled = true;
-      msg.textContent = 'Connexion…';
       msg.style.color = '#5c6470';
+      msg.textContent = 'Connexion…';
       try {
-        var r = await demarrer(null, {
-          email: fond.querySelector('#pse-mobile-mail').value.trim(),
-          motDePasse: fond.querySelector('#pse-mobile-mdp').value
-        }, { poste: nomPosteAuto() });
-        fond.remove();
-        console.info('[PSE_MOBILE] connecté — capacités :', r.capacites);
+        await connecter(fond.querySelector('#pse-mobile-mail').value.trim(),
+                        fond.querySelector('#pse-mobile-mdp').value);
+        fond.remove();   // la suite se fait toute seule via onAuthStateChanged
       } catch (err) {
         msg.style.color = '#b3261e';
-        msg.textContent = String((err && err.message) || err);
+        msg.textContent = messageClair(err);
         bouton.disabled = false;
       }
     };
+    setTimeout(function () { var c = fond.querySelector('#pse-mobile-mail'); if (c) c.focus(); }, 50);
+  }
+
+  function messageClair(e) {
+    var code = (e && e.code) || '';
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password')
+      return 'Adresse ou mot de passe incorrect.';
+    if (code === 'auth/user-not-found') return 'Aucun compte pour cette adresse.';
+    if (code === 'auth/network-request-failed') return 'Pas de réseau.';
+    if (code === 'permission-denied') return 'Refusé par les règles Firestore.';
+    return String((e && e.message) || e);
   }
 
   function nomPosteAuto() {
@@ -486,9 +556,18 @@
     return d.toISOString().slice(0, 10);
   }
 
+  /* Le pont s'installe tout seul : pastille visible, reconnexion automatique. */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { pastille('deconnecte', ''); demarrerAuto(); });
+  } else {
+    pastille('deconnecte', '');
+    demarrerAuto();
+  }
+
   window.PSE_MOBILE = {
     ouvrirConnexion: ouvrirConnexion,
-    demarrer: demarrer,
+    connecter: connecter,
+    deconnecter: deconnecter,
     publier: publier,
     construireInstantane: construireInstantane,
     appliquer: appliquer,
