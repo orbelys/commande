@@ -1,0 +1,80 @@
+.ecran {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: var(--sp-5);
+  padding-top: max(var(--sp-5), env(safe-area-inset-top, 0px));
+  background: var(--c-bg);
+}
+
+.carte {
+  display: grid;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--sp-6);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--c-shadow);
+}
+
+.marque {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 700;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+
+.point {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-full);
+  background: var(--c-accent);
+}
+
+.titre {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.intro {
+  margin-top: calc(var(--sp-2) * -1);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.champ {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.champ span {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-muted);
+}
+
+.champ input {
+  min-height: var(--touch);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-surface-2);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-md);
+}
+
+.erreur {
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--c-danger-soft);
+  color: var(--c-danger);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}

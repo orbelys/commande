@@ -129,6 +129,10 @@ export class FirebaseTransport implements Transport {
           return
         }
         this.compte = { uid: user.uid, email: user.email ?? '' }
+        // Signale tout de suite la session retrouvée : sans cet événement,
+        // l'application resterait sur l'écran de connexion en attendant le
+        // premier instantané, qui peut ne jamais venir si le poste est éteint.
+        this.emitter.emit({ type: 'status', status: 'connecting' })
         this.ecouter(user.uid)
       }),
     )
