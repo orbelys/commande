@@ -33,6 +33,19 @@
   var NOM_FENETRE_PRESENTER = 'projection_presenter';
   var DEBOUNCE_PUBLICATION = 1200;
 
+  /* Configuration du projet Firebase « devoirs-pse » — les mêmes valeurs
+   * publiques que PSE/psr/firebase_psr.js. Ce ne sont pas des secrets : la
+   * sécurité vient des règles Firestore. Le mot de passe, lui, n'est JAMAIS
+   * écrit ici : il est saisi à chaque démarrage. */
+  var CONFIG_PAR_DEFAUT = {
+    apiKey: 'AIzaSyAWdCMvOiAJln3eT9LIAQD3RWJUD0lQcLI',
+    authDomain: 'devoirs-pse.firebaseapp.com',
+    projectId: 'devoirs-pse',
+    storageBucket: 'devoirs-pse.appspot.com',
+    messagingSenderId: '614730413904',
+    appId: '1:614730413904:web:a5dd478af5de30f6bede55'
+  };
+
   var fs = null;    // module Firestore
   var db = null;
   var uid = null;
@@ -249,6 +262,12 @@
     window.PSE_PROG.setSlot(c.cls, c.wkey, c.slotId, champ, valeur, false);
   }
 
+  /* PSE_PROG.setSlot(…,'statut',…) route ces trois statuts vers la fenêtre de
+   * reprise (progression-core.js : requestSlotStatus). Depuis le téléphone,
+   * cela ferait surgir une boîte de dialogue sur l'ordinateur de la classe :
+   * on refuse, proprement. */
+  var STATUTS_A_DIALOGUE = ['À terminer', 'Reporté', 'Non réalisé'];
+
   var HANDLERS = {
     'projection.ouvrir': function () { P().openProjection(); },
     'projection.etape.suivante': function () { P().next(); },
@@ -258,7 +277,13 @@
     'projection.focus.basculer': function () { P().toggleFocus(); },
     'projection.document.afficher': function (p) { P().docToggle(Number(p.idx), p.visible !== false); },
 
-    'seance.statut': function (p) { ecrireCreneau(p, 'statut', String(p.statut)); },
+    'seance.statut': function (p) {
+      var statut = String(p.statut);
+      if (STATUTS_A_DIALOGUE.indexOf(statut) >= 0) {
+        throw new Error('« ' + statut +' » se choisit sur l\'ordinateur (fenêtre de reprise)');
+      }
+      ecrireCreneau(p, 'statut', statut);
+    },
     'seance.remise': function (p) { ecrireCreneau(p, 'remise', String(p.remise)); },
     'seance.memo': function (p) { ecrireCreneau(p, 'memo', String(p.memo || '')); },
 
@@ -342,6 +367,7 @@
    * @param {object} options      { poste: 'Nom du poste' }
    */
   async function demarrer(config, identifiants, options) {
+    config = config || CONFIG_PAR_DEFAUT;
     var SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
     var appM = await import(SDK + 'firebase-app.js');
     var authM = await import(SDK + 'firebase-auth.js');
@@ -385,6 +411,64 @@
     return { uid: uid, capacites: capacites() };
   }
 
+  /* ══ 6. Connexion : petit formulaire, mot de passe jamais stocké ══
+   * Electron n'implémente pas window.prompt : on injecte un panneau minimal.
+   * Le mot de passe vit dans la mémoire de la page le temps de la session et
+   * n'est écrit nulle part. */
+  function ouvrirConnexion() {
+    if (document.getElementById('pse-mobile-cnx')) return;
+    var fond = document.createElement('div');
+    fond.id = 'pse-mobile-cnx';
+    fond.setAttribute('style',
+      'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.55);' +
+      'display:flex;align-items:center;justify-content:center;' +
+      'font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif');
+    fond.innerHTML =
+      '<form style="background:#fff;color:#14181f;padding:22px;border-radius:14px;' +
+      'width:min(380px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.3);display:grid;gap:12px">' +
+      '<strong style="font-size:17px">Télécommande mobile</strong>' +
+      '<div style="font-size:13px;color:#5c6470">Le compte est le même que sur le téléphone. ' +
+      'Le mot de passe n\'est enregistré nulle part.</div>' +
+      '<input id="pse-mobile-mail" type="email" placeholder="Adresse e-mail" autocomplete="username" required ' +
+      'style="padding:11px;border:1px solid #d7dce3;border-radius:8px;font:inherit">' +
+      '<input id="pse-mobile-mdp" type="password" placeholder="Mot de passe" autocomplete="current-password" required ' +
+      'style="padding:11px;border:1px solid #d7dce3;border-radius:8px;font:inherit">' +
+      '<div id="pse-mobile-msg" style="font-size:13px;color:#b3261e;min-height:18px"></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+      '<button type="button" id="pse-mobile-annuler" style="padding:10px 16px;border:1px solid #d7dce3;' +
+      'background:#fff;border-radius:8px;font:inherit;cursor:pointer">Annuler</button>' +
+      '<button type="submit" id="pse-mobile-ok" style="padding:10px 18px;border:0;background:#1f5fd6;' +
+      'color:#fff;border-radius:8px;font:inherit;font-weight:600;cursor:pointer">Connecter</button>' +
+      '</div></form>';
+    document.body.appendChild(fond);
+
+    var msg = fond.querySelector('#pse-mobile-msg');
+    fond.querySelector('#pse-mobile-annuler').onclick = function () { fond.remove(); };
+    fond.querySelector('form').onsubmit = async function (e) {
+      e.preventDefault();
+      var bouton = fond.querySelector('#pse-mobile-ok');
+      bouton.disabled = true;
+      msg.textContent = 'Connexion…';
+      msg.style.color = '#5c6470';
+      try {
+        var r = await demarrer(null, {
+          email: fond.querySelector('#pse-mobile-mail').value.trim(),
+          motDePasse: fond.querySelector('#pse-mobile-mdp').value
+        }, { poste: nomPosteAuto() });
+        fond.remove();
+        console.info('[PSE_MOBILE] connecté — capacités :', r.capacites);
+      } catch (err) {
+        msg.style.color = '#b3261e';
+        msg.textContent = String((err && err.message) || err);
+        bouton.disabled = false;
+      }
+    };
+  }
+
+  function nomPosteAuto() {
+    return 'Suite PSE — ' + (navigator.platform || 'poste');
+  }
+
   /* ══ utilitaires ══════════════════════════════════════════ */
   function safe(fn) { try { return fn(); } catch (e) { return null; } }
   function echapper(t) {
@@ -403,6 +487,7 @@
   }
 
   window.PSE_MOBILE = {
+    ouvrirConnexion: ouvrirConnexion,
     demarrer: demarrer,
     publier: publier,
     construireInstantane: construireInstantane,

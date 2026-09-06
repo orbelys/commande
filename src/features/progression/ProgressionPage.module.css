@@ -55,3 +55,9 @@
   font-size: var(--fs-sm);
   color: var(--c-text-muted);
 }
+
+.note {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}

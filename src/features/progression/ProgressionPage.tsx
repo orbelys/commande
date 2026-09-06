@@ -11,7 +11,14 @@ import type { Ton } from '../../components/ui/Badge'
 import type { Seance, StatutSeance } from '../../services/bridge/types'
 import styles from './ProgressionPage.module.css'
 
-const STATUTS: StatutSeance[] = ['Prévu', 'En cours', 'Fait', 'À terminer', 'Reporté', 'Annulé']
+/**
+ * Seuls ces quatre statuts s'appliquent en silence dans la Suite PSE.
+ * « À terminer », « Reporté » et « Non réalisé » ouvrent une fenêtre de reprise
+ * sur l'ordinateur (où placer le rattrapage) : les envoyer depuis le téléphone
+ * ferait surgir une boîte de dialogue en pleine classe. On les laisse à
+ * l'ordinateur, et le mémo de reprise suffit à noter où l'on s'est arrêté.
+ */
+const STATUTS: StatutSeance[] = ['Prévu', 'En cours', 'Fait', 'Annulé']
 
 const TONS: Record<StatutSeance, Ton> = {
   'Prévu': 'neutre',
@@ -107,6 +114,11 @@ function PanneauSeance({
           </Button>
         ))}
       </div>
+
+      <p className={styles.note}>
+        « À terminer » et « Reporté » se choisissent sur l’ordinateur : ils ouvrent la fenêtre
+        de reprise. Notez plutôt où vous en êtes dans le mémo ci-dessous.
+      </p>
 
       <p className={styles.section}>Support de cours</p>
       <div className={styles.choix}>
