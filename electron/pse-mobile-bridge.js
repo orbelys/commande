@@ -344,16 +344,34 @@
 
   var sdk = null;   // { auth, authM, fsM }
 
+  /**
+   * Charge Firebase. Les pages de la Suite PSE sont servies en file:// :
+   * Chromium refuse alors d'importer un module depuis Internet. On charge donc
+   * le paquet embarqué (vendor/firebase-bundle.js, livré avec l'application),
+   * et on ne retombe sur le CDN que si ce fichier manque — cas d'une page
+   * ouverte depuis un vrai site.
+   */
   async function chargerSdk() {
     if (sdk) return sdk;
-    var SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
-    var appM = await import(SDK + 'firebase-app.js');
-    var authM = await import(SDK + 'firebase-auth.js');
-    var fsM = await import(SDK + 'firebase-firestore.js');
-    var app = appM.getApps().length ? appM.getApp() : appM.initializeApp(CONFIG_PAR_DEFAUT);
-    fs = fsM;
-    db = fsM.getFirestore(app);
-    sdk = { auth: authM.getAuth(app), authM: authM, fsM: fsM };
+    var m;
+    try {
+      m = await import('./vendor/firebase-bundle.js');
+    } catch (eLocal) {
+      try {
+        var SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+        var a = await import(SDK + 'firebase-app.js');
+        var b = await import(SDK + 'firebase-auth.js');
+        var c = await import(SDK + 'firebase-firestore.js');
+        m = Object.assign({}, a, b, c);
+      } catch (eCdn) {
+        throw new Error('Firebase introuvable : ni le paquet embarqué ' +
+          '(vendor/firebase-bundle.js) ni le CDN n\'ont pu être chargés.');
+      }
+    }
+    var app = m.getApps().length ? m.getApp() : m.initializeApp(CONFIG_PAR_DEFAUT);
+    fs = m;
+    db = m.getFirestore(app);
+    sdk = { auth: m.getAuth(app), authM: m, fsM: m };
     return sdk;
   }
 
@@ -472,7 +490,12 @@
       document.body.appendChild(el);
     }
     el.dataset.detail = detail || '';
-    el.textContent = LIBELLES_ETAT[etat] || LIBELLES_ETAT.deconnecte;
+    var texte = LIBELLES_ETAT[etat] || LIBELLES_ETAT.deconnecte;
+    if (etat === 'erreur' && detail) texte += ' — ' + String(detail).slice(0, 70);
+    el.textContent = texte;
+    el.style.maxWidth = etat === 'erreur' ? '520px' : 'none';
+    el.style.textAlign = 'left';
+    el.style.lineHeight = '1.35';
     el.style.background = COULEURS_ETAT[etat] || COULEURS_ETAT.deconnecte;
     el.title = detail || '';
   }

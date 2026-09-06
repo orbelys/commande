@@ -60,22 +60,24 @@ les refuse avec un message clair. Le mémo de reprise couvre le besoin courant
 (« arrêté question 4 »). Les trois statuts restent disponibles normalement sur
 l'ordinateur.
 
-### Le chargement du SDK Firebase — à vérifier au premier essai
+### Firebase est embarqué, pas téléchargé
 
-Le pont importe le SDK depuis `https://www.gstatic.com/firebasejs/…`. Selon la
-manière dont l'application Electron sert ses pages (`file://` ou protocole
-personnalisé), cet import dynamique peut être refusé par le navigateur.
+Vérifié : l'application charge ses pages avec `loadFile`, donc en `file://`.
+Chromium refuse alors d'importer un module depuis Internet — la première
+tentative affichait « Télécommande — problème ».
 
-C'est le seul point qui n'a pas pu être vérifié depuis l'extérieur de
-l'application. Si la console affiche une erreur d'import ou de CORS au moment de
-la connexion, la parade est d'embarquer le SDK localement :
+Le SDK est donc **livré avec l'application**, dans
+`EDITEUR/vendor/firebase-bundle.js` : un fichier unique et autonome (879 Ko),
+construit depuis ce dépôt par `npm run build:vendor`. Le pont l'importe en
+chemin relatif, et ne retombe sur le CDN que si le fichier manque — cas d'une
+page ouverte depuis un vrai site.
 
-```bash
-npm install firebase          # dans Editeur-PSE-Electron
-# puis copier node_modules/firebase/*/dist/esm/*.js dans EDITEUR/vendor/
-```
+Conséquence pratique : la télécommande fonctionne même sans Internet au moment
+du démarrage de l'application (il en faudra évidemment pour joindre Firebase).
 
-et de remplacer la constante `SDK` en tête de `demarrer()` par le chemin local.
+Après toute mise à jour de la bibliothèque : `npm run build:vendor`, copier
+`electron/vendor/firebase-bundle.js` dans `EDITEUR/vendor/`, puis
+`npm run sync:local`.
 
 ---
 

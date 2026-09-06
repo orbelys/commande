@@ -10,7 +10,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "deploy": "VITE_BASE=/commande/ vite build --outDir docs --emptyOutDir && touch docs/.nojekyll && echo 'Site construit dans docs/ — publiez le dépôt avec GitHub Desktop'"
+    "deploy": "VITE_BASE=/commande/ vite build --outDir docs --emptyOutDir && touch docs/.nojekyll && echo 'Site construit dans docs/ — publiez le dépôt avec GitHub Desktop'",
+    "build:vendor": "vite build --config vite.vendor.config.ts"
   },
   "dependencies": {
     "firebase": "^12.18.0",
