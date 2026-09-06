@@ -1,0 +1,58 @@
+.titre {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.meta {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.barre {
+  height: 8px;
+  margin-top: var(--sp-4);
+  border-radius: var(--r-full);
+  background: var(--c-surface-2);
+  overflow: hidden;
+}
+
+.remplissage {
+  display: block;
+  height: 100%;
+  background: var(--c-accent);
+  border-radius: var(--r-full);
+  transition: width 0.25s ease;
+}
+
+.etape {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.pilotage {
+  display: inline-block;
+  margin-top: var(--sp-4);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch);
+  border-radius: var(--r-md);
+  background: var(--c-accent);
+  color: var(--c-accent-contrast);
+  font-weight: 650;
+}

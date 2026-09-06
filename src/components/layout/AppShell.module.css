@@ -1,0 +1,18 @@
+.coque {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.contenu {
+  flex: 1;
+  padding: var(--sp-4) var(--sp-4) calc(var(--nav-h) + var(--safe-b) + var(--sp-6));
+}
+
+.largeur {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  max-width: var(--shell-max);
+  margin: 0 auto;
+}

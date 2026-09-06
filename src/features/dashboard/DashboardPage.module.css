@@ -1,0 +1,28 @@
+.grille {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+@media (min-width: 620px) {
+  .grille {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.poste {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.posteNom {
+  font-weight: 650;
+}
+
+.posteDetail {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}

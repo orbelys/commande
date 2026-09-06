@@ -1,0 +1,29 @@
+# Dependances
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+*.local
+
+# Environnement / secrets (ne jamais versionner)
+.env
+.env.*
+!.env.example
+src/services/firebase/firebase-config.ts
+
+# Systeme
+.DS_Store
+Thumbs.db
+
+# Editeurs
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cache TypeScript
+*.tsbuildinfo

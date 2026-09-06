@@ -1,0 +1,77 @@
+/* Jetons de design : une seule source pour les couleurs, espaces et rayons.
+   Modifier ici change toute l'application. */
+:root {
+  color-scheme: light dark;
+
+  /* Couleurs - thème clair */
+  --c-bg: #f4f5f7;
+  --c-surface: #ffffff;
+  --c-surface-2: #f8fafc;
+  --c-border: #e2e5ea;
+  --c-text: #14181f;
+  --c-text-muted: #5c6470;
+  --c-accent: #1f5fd6;
+  --c-accent-soft: #e8f0fd;
+  --c-accent-contrast: #ffffff;
+  --c-ok: #1a7f52;
+  --c-ok-soft: #e4f4ec;
+  --c-warn: #9a6212;
+  --c-warn-soft: #fdf1dd;
+  --c-danger: #b3261e;
+  --c-danger-soft: #fbe9e7;
+  --c-shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 8px 24px rgb(16 24 40 / 6%);
+
+  /* Espaces */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* Rayons */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-full: 999px;
+
+  /* Typographie */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+
+  /* Gabarit */
+  --touch: 56px;          /* hauteur minimale d’une cible tactile */
+  --shell-max: 780px;     /* largeur max du contenu sur ordinateur */
+  --nav-h: 68px;          /* hauteur de la barre de navigation basse */
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #0d1117;
+    --c-surface: #161b23;
+    --c-surface-2: #1c222c;
+    --c-border: #2a313c;
+    --c-text: #e8ebf0;
+    --c-text-muted: #99a2b0;
+    --c-accent: #6ea1ff;
+    --c-accent-soft: #17233a;
+    --c-accent-contrast: #0d1117;
+    --c-ok: #58cc98;
+    --c-ok-soft: #12291f;
+    --c-warn: #e0b061;
+    --c-warn-soft: #2a2013;
+    --c-danger: #ff8a80;
+    --c-danger-soft: #2c1614;
+    --c-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
+  }
+}

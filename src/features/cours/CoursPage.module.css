@@ -1,0 +1,36 @@
+.titre {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.meta {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+
+.trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.trio button {
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.retour {
+  margin-top: var(--sp-3);
+  min-height: 20px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}

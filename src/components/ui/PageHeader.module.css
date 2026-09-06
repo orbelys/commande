@@ -1,0 +1,16 @@
+.entete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.titre {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.detail {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}

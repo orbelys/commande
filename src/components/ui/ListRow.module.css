@@ -1,0 +1,45 @@
+.ligne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--touch);
+  padding: var(--sp-3) var(--sp-4);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--c-border);
+  text-align: left;
+}
+
+.ligne:last-child {
+  border-bottom: 0;
+}
+
+.cliquable:active {
+  background: var(--c-surface-2);
+}
+
+.actif {
+  background: var(--c-accent-soft);
+}
+
+.texte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.titre {
+  font-weight: 600;
+}
+
+.sousTitre {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.droite {
+  flex-shrink: 0;
+}

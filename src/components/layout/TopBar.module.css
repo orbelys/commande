@@ -1,0 +1,35 @@
+.barre {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--c-bg) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--c-border);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.largeur {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  max-width: var(--shell-max);
+  min-height: 52px;
+  margin: 0 auto;
+  padding: 0 var(--sp-4);
+}
+
+.marque {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.point {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-full);
+  background: var(--c-accent);
+}

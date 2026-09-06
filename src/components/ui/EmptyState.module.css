@@ -1,0 +1,14 @@
+.vide {
+  padding: var(--sp-8) var(--sp-4);
+  text-align: center;
+}
+
+.titre {
+  font-weight: 600;
+}
+
+.detail {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
