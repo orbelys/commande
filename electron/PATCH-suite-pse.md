@@ -11,6 +11,7 @@ Sauvegardes créées à côté de chaque fichier, sous le nom
 | `progression-core.js` | méthode `PSE_PROG.slotsForDate(iso)` — créneaux d'une journée, lecture seule |
 | `cours.html`, `capa.html` | `<script src="pse-mobile-bridge.js"></script>` avant `</body>` |
 | `pse-mobile-bridge.js` | fichier neuf, copié dans `EDITEUR/` |
+| `Editeur-PSE-Electron/package.json` | une entrée dans `build.extraResources` pour que le pont soit embarqué |
 
 `PSE_PROG.setSlot()` existait déjà (ligne 6562) : rien à ajouter de ce côté.
 
@@ -18,8 +19,15 @@ Sauvegardes créées à côté de chaque fichier, sous le nom
 
 ## Comment s'en servir
 
-1. Relancer `npm run dist:local` — sans cela, l'application ne voit pas ces
-   modifications.
+1. Mettre l'application à jour. Le chemin rapide, celui du projet :
+
+   ```bash
+   cd "/Users/brahms/Documents/ATELIER COURS PSE/Editeur-PSE-Electron"
+   npm run sync:local && npm run open:local
+   ```
+
+   L'application doit être **quittée** avant : le script refuse de
+   synchroniser sous une application en cours, et il a raison.
 2. Ouvrir la Suite PSE. Une **pastille grise « 📱 Télécommande — se connecter »**
    apparaît en bas à gauche de la fenêtre du cours.
 3. Cliquer dessus, saisir l'adresse et le mot de passe du compte Firebase.
@@ -76,3 +84,22 @@ et de remplacer la constante `SDK` en tête de `demarrer()` par le chemin local.
 Restaurer les quatre fichiers depuis leurs sauvegardes
 `…SAUVEGARDE_avant_telecommande_mobile_…`, supprimer `pse-mobile-bridge.js`,
 puis relancer `npm run dist:local`. Rien d'autre n'a été touché.
+
+
+---
+
+## Le piège qui coûte une soirée
+
+`build.extraResources` du `package.json` est une **liste blanche explicite**,
+fichier par fichier. Un nouveau fichier posé dans `EDITEUR/` n'est pas embarqué
+tant qu'il n'y figure pas — et l'échec est **silencieux** : la page charge, la
+balise `<script>` pointe dans le vide, rien ne s'affiche, aucune erreur visible.
+
+C'est ce qui s'est passé au premier essai : `cours.html` modifié était bien
+copié, mais `pse-mobile-bridge.js` n'existait pas dans l'application.
+
+Vérification après chaque synchronisation :
+
+```bash
+ls "dist/mac-arm64/Editeur PSE.app/Contents/Resources/editor/pse-mobile-bridge.js"
+```
