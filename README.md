@@ -6,8 +6,10 @@ la progression, cocher les actions à faire.
 
 > **État actuel.** Le site fonctionne de bout en bout en local avec des
 > **données fictives** (transport « simulation »). Le transport Firebase est
-> écrit et prêt ; il s'active dès qu'un projet Firebase existe. Le module à
-> greffer dans la Suite PSE est fourni dans `electron/`, avec sa notice.
+> écrit et prêt ; la configuration du projet existant `devoirs-pse` est déjà en
+> place dans `.env.local`. Il reste à activer l'authentification et à compléter
+> les règles Firestore (§5). Le module à greffer dans la Suite PSE est fourni
+> dans `electron/`, avec sa notice.
 
 ---
 
@@ -67,7 +69,7 @@ ouvrez-la dans Safari sur le téléphone.
 ```
 commande/
 ├── index.html                  Page hôte (application à page unique)
-├── firestore.rules             Règles de sécurité à coller dans Firebase
+├── firestore.rules.a-inserer   Règles à INSÉRER dans celles de devoirs-pse
 ├── .env.example                Modèle de configuration → .env.local
 ├── electron/
 │   ├── pse-mobile-bridge.js    Module à charger dans la Suite PSE
@@ -147,28 +149,45 @@ L'onglet *Synchronisation* affiche cet état.
 
 ---
 
-## 5. Activer Firebase (quand vous le déciderez)
+## 5. Activer Firebase
 
-1. Console Firebase → créer un projet.
-2. **Authentication** → activer *E-mail / mot de passe* → créer **un** compte
-   enseignant. Ce même compte servira au téléphone et à la Suite PSE.
-3. **Firestore Database** → créer la base → onglet *Règles* → coller le contenu
-   de `firestore.rules` → publier.
-4. **Paramètres du projet → Vos applications → Web** → copier la configuration.
-5. Dans le projet :
-   ```bash
-   cp .env.example .env.local
-   ```
-   renseigner les quatre valeurs `VITE_FIREBASE_*` et mettre
-   `VITE_TRANSPORT=firebase`.
-6. Relancer `npm run dev` : l'onglet *Synchronisation* affiche un formulaire de
-   connexion.
+**Le projet existe déjà : `devoirs-pse`.** C'est celui qui fait tourner
+mapse.fr (résultats d'élèves, quiz en direct, exercices…). Sa configuration est
+déjà renseignée dans `.env.local` — inutile de créer quoi que ce soit.
 
-`.env.local` n'est jamais versionné. Les clés « Web » de Firebase sont publiques
-par conception : la sécurité vient des règles Firestore, qui n'autorisent chaque
-compte qu'à ses propres documents.
+Il manque deux choses, et elles touchent un projet **en service** : à faire à
+froid, pas un jour de cours.
 
----
+### a. Activer l'authentification par e-mail
+
+Aujourd'hui, aucune page de mapse.fr n'utilise l'authentification Firebase :
+les élèves sont identifiés par un `userCode`. La télécommande, elle, a besoin
+d'un vrai compte — elle lit la progression et pilote la classe.
+
+1. Console Firebase → projet `devoirs-pse` → **Authentication** → *Sign-in
+   method* → activer **E-mail / mot de passe**.
+2. Onglet *Users* → **Add user** → créer votre compte enseignant.
+
+Cet ajout est sans effet sur l'existant : les pages élèves continuent d'écrire
+sans authentification, exactement comme avant.
+
+### b. Ajouter les règles des deux nouvelles collections
+
+⚠️ **Ne remplacez pas vos règles actuelles.** Le fichier
+`firestore.rules.a-inserer` contient un bloc à **insérer** dans les règles
+existantes, et un point de vigilance à lire : si vos règles comportent un
+fourre-tout ouvert (`match /{document=**} { allow read, write: if true; }`),
+la télécommande resterait accessible à n'importe qui — le fichier explique
+comment fermer cela sans casser mapse.fr.
+
+### c. Basculer le site
+
+Dans `.env.local`, remplacer `VITE_TRANSPORT=mock` par
+`VITE_TRANSPORT=firebase`, puis relancer `npm run dev`. L'onglet
+*Synchronisation* affiche alors un formulaire de connexion.
+
+Les nouvelles collections (`postes`, `commandes`) n'entrent en collision avec
+aucune de celles déjà utilisées par mapse.fr.
 
 ## 6. Côté Suite PSE
 

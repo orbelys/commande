@@ -97,7 +97,9 @@ des commandes qui échoueraient.
    <script src="pse-mobile-bridge.js"></script>
    ```
 
-3. Démarrer le pont une fois, avec la configuration Firebase et le compte.
+3. Démarrer le pont une fois, avec la configuration Firebase (projet
+   **devoirs-pse**, la même que `PSE/psr/firebase_psr.js`) et le compte
+   enseignant créé dans Authentication.
    **Les identifiants ne doivent jamais être écrits dans le code** : passez-les
    par `safeStorage` d'Electron (ils sont alors chiffrés par le trousseau du
    Mac), ou demandez-les dans un petit formulaire au premier lancement.
