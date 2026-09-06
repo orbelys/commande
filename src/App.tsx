@@ -7,6 +7,7 @@ import CommandesPage from './features/commandes/CommandesPage'
 import ProgressionPage from './features/progression/ProgressionPage'
 import DocumentsPage from './features/documents/DocumentsPage'
 import SyncPage from './features/sync/SyncPage'
+import ReglagesPage from './features/reglages/ReglagesPage'
 
 /**
  * Table des routes de l’application.
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/progression" element={<ProgressionPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/synchronisation" element={<SyncPage />} />
+        <Route path="/reglages" element={<ReglagesPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

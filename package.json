@@ -9,7 +9,8 @@
     "dev:lan": "vite --host",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "deploy": "VITE_BASE=/commande/ vite build && rm -rf ../PSE/commande && mkdir -p ../PSE/commande && cp -R dist/. ../PSE/commande/ && echo 'Copié dans PSE/commande — publiez avec GitHub Desktop (dépôt PSE)'"
   },
   "dependencies": {
     "firebase": "^12.18.0",

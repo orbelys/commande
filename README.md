@@ -227,13 +227,28 @@ Rappel : une modification dans `EDITEUR/` n'arrive dans l'application qu'après
 
 ---
 
-## 8. Mise en ligne (étape ultérieure)
+## 8. Mise en ligne — c'est fait
 
-Le dépôt privé est `orbelys/commande`. Deux points à traiter le moment venu :
+Le site est en ligne : **https://mapse.fr/commande/**
 
-- **Sous-dossier** : sur GitHub Pages l'adresse sera `…/commande/`, donc
-  construire avec `VITE_BASE=/commande/ npm run build`.
-- **Adresses directes** : un hébergement statique renvoie une erreur 404 si l'on
-  ouvre directement `/progression`. La parade habituelle est de copier
-  `index.html` en `404.html` dans `dist/`. En local, le serveur de développement
-  gère déjà ce cas.
+GitHub Pages n'est pas disponible sur un dépôt privé avec la formule gratuite,
+donc la version construite est publiée dans le dépôt public
+`Preventionsanteenvironnement/PSE` (celui de mapse.fr), sous-dossier
+`commande/`. Le code source, lui, reste privé dans `orbelys/commande`.
+
+La page est publiquement accessible mais **sans identifiants elle n'affiche
+qu'un écran de connexion** : aucune donnée n'est lisible.
+
+### Publier une nouvelle version
+
+```bash
+cd /Users/brahms/Documents/GitHub/commande && npm run deploy
+```
+
+Cela construit le site et le copie dans `PSE/commande/`. Il reste à publier le
+dépôt **PSE** dans GitHub Desktop (Commit puis Push) ; la mise en ligne prend
+une à deux minutes.
+
+Deux détails techniques : les adresses utilisent un `#`
+(`…/commande/#/progression`) pour ne pas dépendre du `404.html` de mapse.fr, et
+`VITE_BASE=/commande/` place correctement les fichiers du sous-dossier.

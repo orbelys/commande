@@ -56,7 +56,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --c-bg: #0d1117;
     --c-surface: #161b23;
     --c-surface-2: #1c222c;
@@ -75,3 +75,23 @@
     --c-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
   }
 }
+
+/* Choix explicite de l'utilisateur : il l'emporte sur le réglage système. */
+:root[data-theme="dark"] {
+    --c-bg: #0d1117;
+    --c-surface: #161b23;
+    --c-surface-2: #1c222c;
+    --c-border: #2a313c;
+    --c-text: #e8ebf0;
+    --c-text-muted: #99a2b0;
+    --c-accent: #6ea1ff;
+    --c-accent-soft: #17233a;
+    --c-accent-contrast: #0d1117;
+    --c-ok: #58cc98;
+    --c-ok-soft: #12291f;
+    --c-warn: #e0b061;
+    --c-warn-soft: #2a2013;
+    --c-danger: #ff8a80;
+    --c-danger-soft: #2c1614;
+    --c-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
+  }

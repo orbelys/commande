@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { HashRouter } from 'react-router-dom'
 import App from './App'
 import { BridgeProvider } from './services/bridge/BridgeProvider'
 import './styles/global.css'
@@ -10,10 +10,10 @@ if (!container) throw new Error('Element #root introuvable dans index.html')
 
 createRoot(container).render(
   <StrictMode>
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <HashRouter>
       <BridgeProvider>
         <App />
       </BridgeProvider>
-    </BrowserRouter>
+    </HashRouter>
   </StrictMode>,
 )
