@@ -33,7 +33,6 @@
   var COL_COMMANDES = 'commandes';
   var SOUS_FILE = 'file';
   var CLE_APPLIQUEES = 'pse-mobile-commandes-appliquees-v1';
-  var NOM_FENETRE_PRESENTER = 'projection_presenter';
   var DEBOUNCE_PUBLICATION = 1200;
 
   /* Configuration du projet Firebase « devoirs-pse » — les mêmes valeurs
@@ -55,36 +54,43 @@
   var nomPoste = 'Suite PSE';  /* précisé au démarrage */
   var timerPub = null;
 
-  /* ══ 1. Accès à la fenêtre de projection ══════════════════
+  /* ══ 1. Lien avec la fenêtre de projection ═══════════════
    *
-   * ATTENTION — window.open('', nom) ne rend PAS la fenêtre existante quand
-   * elle n'existe pas : elle en CRÉE une vide. Utilisée pour sonder l'état,
-   * cette forme ouvrait une fenêtre blanche « editeur-pse » à chaque
-   * publication. Ne jamais la réintroduire.
+   * Electron ouvre la projection dans une fenêtre séparée, dans un autre
+   * processus : impossible d'appeler son window.P directement, même en
+   * étant de même origine. On dialogue donc par messages, comme le fait
+   * déjà le reste de l'application.
    *
-   * On garde donc une référence, capturée au moment où la Suite PSE ouvre
-   * elle-même sa fenêtre de projection. Les deux fenêtres étant de même
-   * origine, on appelle ensuite son API window.P directement.
+   * La fenêtre de projection publie son état toutes les 2 secondes ; on
+   * garde le dernier reçu, ainsi que sa provenance pour lui répondre.
+   * Passé 8 secondes sans nouvelle, on la considère fermée.
+   *
+   * NE JAMAIS utiliser window.open('', nom) pour la retrouver : quand elle
+   * n'existe pas, cet appel en CRÉE une, vide.
    */
-  var fenetreProjection = null;
+  var PERIME_MS = 8000;
+  var etatProjete = null;
+  var etatRecuA = 0;
+  var cibleProjection = null;
 
-  (function surveillerOuvertures() {
-    var ouvrirOriginal = window.open;
-    window.open = function (url, nom) {
-      var w = ouvrirOriginal.apply(window, arguments);
-      if (nom === NOM_FENETRE_PRESENTER && w) fenetreProjection = w;
-      return w;
-    };
-  })();
+  window.addEventListener('message', function (e) {
+    var m = e.data || {};
+    if (m.type !== 'mobile-etat') return;
+    etatProjete = m.etat || null;
+    etatRecuA = Date.now();
+    cibleProjection = e.source || cibleProjection;
+    publierBientot();
+  });
 
-  function presenter() {
-    try {
-      var w = fenetreProjection;
-      if (!w || w.closed || !w.P) return null;
-      return w;
-    } catch (e) {
-      return null;
+  function projectionVivante() {
+    return !!etatProjete && (Date.now() - etatRecuA) < PERIME_MS;
+  }
+
+  function envoyerProjection(message) {
+    if (!projectionVivante() || !cibleProjection) {
+      throw new Error('Aucune projection en cours');
     }
+    cibleProjection.postMessage(Object.assign({ type: 'mobile-cmd' }, message), '*');
   }
 
   /* ══ 2. Capacités réellement disponibles ══════════════════
@@ -92,7 +98,7 @@
    * fonction n'existe pas sur ce poste, au lieu d'envoyer dans le vide. */
   function capacites() {
     return {
-      projection: !!presenter(),
+      projection: projectionVivante(),
       progression: !!(window.PSE_PROG &&
         typeof window.PSE_PROG.slotsForDate === 'function' &&
         typeof window.PSE_PROG.setSlot === 'function'),
@@ -104,29 +110,8 @@
   /* ══ 3. Construction de l'instantané ══════════════════════ */
 
   function etatProjection() {
-    var w = presenter();
-    if (!w) return null;
-
-    // Chemin normal : projection.html expose P.etat() (voir PATCH-projection.md).
-    if (typeof w.P.etat === 'function') {
-      var e = safe(function () { return w.P.etat(); });
-      if (e) return normaliserProjection(e);
-    }
-
-    // Chemin dégradé : la fenêtre est ouverte mais n'expose pas encore son
-    // état. On publie le minimum pour que le téléphone reste utilisable.
-    return {
-      fenetreOuverte: true,
-      coursTitre: safe(function () { return w.coursTitre(); }) || 'Cours projeté',
-      classeNom: '',
-      etape: -1,
-      nbEtapes: 0,
-      corrigeVisible: false,
-      corrigeDisponible: false,
-      focus: false,
-      sommaire: [],
-      documents: []
-    };
+    if (!projectionVivante()) return null;
+    return normaliserProjection(etatProjete);
   }
 
   function normaliserProjection(e) {
@@ -265,12 +250,6 @@
 
   /* ══ 4. Application des commandes ═════════════════════════ */
 
-  function P() {
-    var w = presenter();
-    if (!w) throw new Error('Aucune fenêtre de projection ouverte');
-    return w.P;
-  }
-
   function creneau(payload) {
     var morceaux = String(payload.seanceId || '').split('|');
     if (morceaux.length < 3) throw new Error('Identifiant de séance invalide');
@@ -290,13 +269,15 @@
   var STATUTS_A_DIALOGUE = ['À terminer', 'Reporté', 'Non réalisé'];
 
   var HANDLERS = {
-    'projection.ouvrir': function () { P().openProjection(); },
-    'projection.etape.suivante': function () { P().next(); },
-    'projection.etape.precedente': function () { P().prev(); },
-    'projection.etape.aller': function (p) { P().gotoStep(Number(p.etape)); },
-    'projection.corrige.basculer': function () { P().toggleReveal(); },
-    'projection.focus.basculer': function () { P().toggleFocus(); },
-    'projection.document.afficher': function (p) { P().docToggle(Number(p.idx), p.visible !== false); },
+    'projection.ouvrir': function () { envoyerProjection({ cmd: 'open' }); },
+    'projection.etape.suivante': function () { envoyerProjection({ cmd: 'next' }); },
+    'projection.etape.precedente': function () { envoyerProjection({ cmd: 'prev' }); },
+    'projection.etape.aller': function (p) { envoyerProjection({ cmd: 'goto', step: Number(p.etape) }); },
+    'projection.corrige.basculer': function () { envoyerProjection({ cmd: 'reveal' }); },
+    'projection.focus.basculer': function () { envoyerProjection({ cmd: 'focus' }); },
+    'projection.document.afficher': function (p) {
+      envoyerProjection({ cmd: 'doc', idx: Number(p.idx), show: p.visible !== false });
+    },
 
     'seance.statut': function (p) {
       var statut = String(p.statut);
