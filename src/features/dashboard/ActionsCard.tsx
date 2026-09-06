@@ -12,7 +12,7 @@ export default function ActionsCard() {
   const ouvertes = (snapshot?.actions ?? []).filter((a) => a.statut === 'a_faire')
 
   return (
-    <Card titre={`À faire (${ouvertes.length})`} padding={false}>
+    <Card titre="À faire" padding={false} action={ouvertes.length ? <Badge ton={ouvertes.some((a) => a.retard) ? 'danger' : 'neutre'}>{ouvertes.length}</Badge> : undefined}>
       {ouvertes.length === 0 ? (
         <EmptyState titre="Rien en attente" />
       ) : (

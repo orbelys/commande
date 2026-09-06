@@ -1,15 +1,33 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  gap: 5px;
+  padding: 4px 11px;
   border-radius: var(--r-full);
   font-size: var(--fs-xs);
-  font-weight: 650;
+  font-weight: 700;
+  letter-spacing: -0.005em;
   white-space: nowrap;
 }
 
-.neutre { background: var(--c-surface-2); color: var(--c-text-muted); }
+.neutre { background: var(--c-surface-3); color: var(--c-text-muted); }
 .accent { background: var(--c-accent-soft); color: var(--c-accent); }
 .ok { background: var(--c-ok-soft); color: var(--c-ok); }
 .attention { background: var(--c-warn-soft); color: var(--c-warn); }
 .danger { background: var(--c-danger-soft); color: var(--c-danger); }
+.live { background: var(--c-live-soft); color: var(--c-live); }
+
+/* Point clignotant pour « en direct ». */
+.live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: currentColor;
+  animation: pouls 1.8s ease-in-out infinite;
+}
+
+@keyframes pouls {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

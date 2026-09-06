@@ -5,8 +5,11 @@ export function heure(iso: string | null): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
+/** Un jour « 2026-09-07 » se lit en UTC par défaut : on l'ancre à midi pour
+    que le libellé ne bascule jamais d'un jour selon le fuseau. */
 export function dateCourte(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + 'T12:00:00') : new Date(iso)
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
 export function depuis(iso: string | null): string {

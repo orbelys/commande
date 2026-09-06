@@ -1,0 +1,82 @@
+.frise {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 46px 18px 1fr auto;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 52px;
+}
+
+.heure {
+  font-family: var(--font-chiffres);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-text-muted);
+  letter-spacing: -0.02em;
+}
+
+/* Le trait vertical qui relie les créneaux entre eux. */
+.trait {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trait::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--c-border);
+}
+
+.item:first-child .trait::before { top: 50%; }
+.item:last-child .trait::before { bottom: 50%; }
+
+.point {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-full);
+  background: var(--c-border-fort);
+  border: 2px solid var(--c-surface);
+  box-sizing: content-box;
+}
+
+.corps {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.titre {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.passe { opacity: 0.5; }
+
+.actif .heure { color: var(--c-live); }
+.actif .titre { font-weight: 750; }
+
+.actif .point {
+  background: var(--c-live);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-live) 22%, transparent);
+}

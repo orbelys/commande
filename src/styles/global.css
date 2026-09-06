@@ -15,6 +15,8 @@ body,
 body {
   margin: 0;
   background: var(--c-bg);
+  background-image: linear-gradient(180deg, var(--c-bg-haut) 0, var(--c-bg) 320px);
+  background-attachment: fixed;
   color: var(--c-text);
   font-family: var(--font);
   font-size: var(--fs-md);
@@ -24,8 +26,13 @@ body {
   overscroll-behavior-y: none;
 }
 
-h1, h2, h3, p, figure {
+h1, h2, h3, h4, p, figure, dl, dd {
   margin: 0;
+}
+
+/* Les heures et les compteurs s'alignent verticalement. */
+time, .chiffres {
+  font-variant-numeric: tabular-nums;
 }
 
 button {
@@ -65,4 +72,10 @@ a {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Apparition douce du contenu d'une page. */
+@keyframes apparition {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }

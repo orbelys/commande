@@ -1,9 +1,18 @@
 .carte {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--c-shadow);
+  border-radius: var(--r-xl);
+  box-shadow: var(--o-2);
   overflow: hidden;
+}
+
+.live {
+  border-color: color-mix(in srgb, var(--c-live) 40%, var(--c-border));
+  box-shadow: var(--o-3);
+}
+
+.attention {
+  border-color: color-mix(in srgb, var(--c-warn) 38%, var(--c-border));
 }
 
 .entete {
@@ -11,17 +20,16 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-4) 0;
+  padding: var(--sp-4) var(--sp-5) 0;
+  min-height: 26px;
 }
 
 .titre {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--c-text-muted);
+  color: var(--c-text-faible);
 }
 
-.corps {
-  padding: var(--sp-4);
-}
+.corps { padding: var(--sp-5); }

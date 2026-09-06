@@ -1,8 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import styles from './Button.module.css'
 
-type Variante = 'principal' | 'secondaire' | 'discret' | 'danger'
-type Taille = 'md' | 'lg'
+type Variante = 'principal' | 'secondaire' | 'doux' | 'discret' | 'danger' | 'succes'
+type Taille = 'sm' | 'md' | 'lg'
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variante?: Variante

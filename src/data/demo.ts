@@ -6,17 +6,21 @@ import { VERSION_CONTRAT } from '../services/bridge/types'
  * Aucun élève réel, aucune donnée personnelle, aucun contenu de cours réel.
  */
 
+/** Jour au format ISO, en heure LOCALE : toISOString() bascule la veille
+    dès que l'heure locale dépasse minuit UTC. */
 function jourIso(decalage = 0): string {
   const d = new Date()
   d.setDate(d.getDate() + decalage)
-  return d.toISOString().slice(0, 10)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
 /** Lundi de la semaine contenant la date donnée. */
 function lundi(iso: string): string {
   const d = new Date(iso + 'T12:00:00')
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
-  return d.toISOString().slice(0, 10)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
 function seance(
@@ -79,6 +83,7 @@ export function snapshotDemo(): Snapshot {
         { idx: 6, label: 'Question 7 — conclure', corrigeDisponible: true },
         { idx: 7, label: 'Bilan de séance', corrigeDisponible: false },
       ],
+      minuteur: { actif: false, enPause: false, restant: 0 },
       documents: [
         { idx: 0, label: 'Document 1 — courbe du sommeil', visible: true },
         { idx: 1, label: 'Document 2 — témoignages', visible: true },
@@ -87,7 +92,7 @@ export function snapshotDemo(): Snapshot {
     },
 
     journee: [
-      { id: 'ev:1', type: 'cours', debut: '08:00', fin: '09:00', titre: 'PSE — Groupe A', lieu: 'B12', classeNom: 'Groupe A', statut: 'Fait' },
+      { id: 'ev:1', type: 'cours', debut: '08:00', fin: '09:00', titre: 'PSE — Groupe A', lieu: 'B12', classeNom: 'Groupe A', statut: 'Réalisé' },
       { id: 'ev:2', type: 'cours', debut: '10:00', fin: '12:00', titre: 'PSE — Groupe C', lieu: 'B12', classeNom: 'Groupe C', statut: 'En cours' },
       { id: 'ev:3', type: 'evenement', debut: '13:00', fin: '14:00', titre: 'Réunion d’équipe', lieu: 'Salle des profs', classeNom: '', statut: '' },
       { id: 'ev:4', type: 'cours', debut: '14:00', fin: '15:00', titre: 'PSE — Groupe B', lieu: 'B14', classeNom: 'Groupe B', statut: 'Prévu' },
@@ -95,7 +100,7 @@ export function snapshotDemo(): Snapshot {
 
     seances: [
       seance('cl-01', 'Groupe A', aujourdhui, '08:00', '09:00', {
-        statut: 'Fait',
+        statut: 'Réalisé',
         objectif: 'Repérer les rythmes biologiques',
         remise: 'fait',
       }),

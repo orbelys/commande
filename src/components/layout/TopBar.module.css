@@ -2,10 +2,11 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: color-mix(in srgb, var(--c-bg) 88%, transparent);
-  backdrop-filter: saturate(180%) blur(12px);
-  border-bottom: 1px solid var(--c-border);
-  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in srgb, var(--c-bg-haut) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid color-mix(in srgb, var(--c-border) 70%, transparent);
+  padding-top: var(--safe-t);
 }
 
 .largeur {
@@ -14,7 +15,7 @@
   justify-content: space-between;
   gap: var(--sp-3);
   max-width: var(--shell-max);
-  min-height: 52px;
+  min-height: 54px;
   margin: 0 auto;
   padding: 0 var(--sp-4);
 }
@@ -23,15 +24,16 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 750;
+  font-size: var(--fs-md);
+  letter-spacing: -0.02em;
 }
 
 .point {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: var(--r-full);
-  background: var(--c-accent);
+  background: linear-gradient(140deg, var(--c-accent), var(--c-live));
 }
 
 .droite {
@@ -50,11 +52,12 @@
   border-radius: var(--r-full);
   background: var(--c-surface);
   color: var(--c-text-muted);
-  font-size: 15px;
+  font-size: 14px;
   flex-shrink: 0;
+  transition: color var(--transition), border-color var(--transition);
 }
 
 .reglages.actif {
   color: var(--c-accent);
-  border-color: var(--c-accent);
+  border-color: color-mix(in srgb, var(--c-accent) 45%, var(--c-border));
 }

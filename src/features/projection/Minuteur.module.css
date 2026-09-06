@@ -1,0 +1,28 @@
+.compteur {
+  font-family: var(--font-chiffres);
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  text-align: center;
+  padding: var(--sp-2) 0 var(--sp-4);
+  color: var(--c-live);
+}
+
+.durees {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+}
+
+.controles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.absent {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  line-height: 1.5;
+}

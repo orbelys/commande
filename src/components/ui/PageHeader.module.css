@@ -1,13 +1,14 @@
 .entete {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: 5px;
+  padding: var(--sp-2) var(--sp-1) 0;
 }
 
 .titre {
   font-size: var(--fs-2xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
 
 .detail {

@@ -1,0 +1,13 @@
+.choix {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-2);
+}
+
+.choixCompact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.choixCompact button { flex: 1 1 auto; }

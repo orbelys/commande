@@ -1,21 +1,86 @@
+.ligne {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-5);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--c-border);
+  text-align: left;
+  color: inherit;
+  transition: background-color var(--transition);
+}
+
+.ligne:active { background: var(--c-surface-2); }
+.ligneOuverte { background: var(--c-surface-2); }
+
+.gauche {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 46px;
+  flex-shrink: 0;
+}
+
+.horaire {
+  font-family: var(--font-chiffres);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.jour {
+  font-size: 10.5px;
+  color: var(--c-text-faible);
+  text-transform: lowercase;
+}
+
+.texte {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.classe {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.detail {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quand {
+  margin-top: 1px;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--c-live);
+}
+
 .panneau {
-  padding: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
   background: var(--c-surface-2);
   border-bottom: 1px solid var(--c-border);
+  animation: apparition 200ms ease both;
 }
 
 .section {
   margin-bottom: var(--sp-2);
   font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--c-text-muted);
+  color: var(--c-text-faible);
 }
 
-.section:not(:first-child) {
-  margin-top: var(--sp-5);
-}
+.section:not(:first-child) { margin-top: var(--sp-5); }
 
 .choix {
   display: flex;
@@ -23,11 +88,13 @@
   gap: var(--sp-2);
 }
 
-.choix button {
-  flex: 1 1 calc(50% - var(--sp-2));
-  min-height: 48px;
-  padding: 0 var(--sp-3);
-  font-size: var(--fs-sm);
+.choix button { flex: 1 1 auto; }
+
+.note {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faible);
+  line-height: 1.5;
 }
 
 .memo {
@@ -42,22 +109,11 @@
   resize: vertical;
 }
 
-.memo:disabled {
-  opacity: 0.6;
-}
+.memo:disabled { opacity: 0.6; }
+.memo + button { margin-top: var(--sp-3); }
 
-.memo + button {
-  margin-top: var(--sp-3);
-}
-
-.detail {
+.salle {
   margin-top: var(--sp-4);
-  font-size: var(--fs-sm);
-  color: var(--c-text-muted);
-}
-
-.note {
-  margin-top: var(--sp-3);
   font-size: var(--fs-sm);
   color: var(--c-text-muted);
 }

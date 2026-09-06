@@ -9,7 +9,7 @@
  * journée d'agenda, actions de réunion.
  */
 
-export const VERSION_CONTRAT = 2
+export const VERSION_CONTRAT = 3
 
 /** État du lien avec Electron. */
 export type ConnectionStatus = 'offline' | 'connecting' | 'online'
@@ -51,6 +51,14 @@ export interface EtapeProjetee {
   corrigeDisponible: boolean
 }
 
+/** Minuteur projeté à l'écran des élèves. */
+export interface Minuteur {
+  actif: boolean
+  enPause: boolean
+  /** Secondes restantes. */
+  restant: number
+}
+
 /** État de la projection en cours dans Electron. */
 export interface Projection {
   /** La fenêtre élèves est ouverte. */
@@ -65,17 +73,27 @@ export interface Projection {
   focus: boolean
   sommaire: EtapeProjetee[]
   documents: DocumentProjete[]
+  /** Absent si le poste tourne encore sur une version antérieure du pont. */
+  minuteur?: Minuteur
 }
 
 /** Statuts d'une séance, tels qu'ils existent dans la progression. */
 export type StatutSeance =
   | 'Prévu'
   | 'En cours'
-  | 'Fait'
+  | 'Réalisé'
   | 'À terminer'
   | 'Reporté'
   | 'Non réalisé'
   | 'Annulé'
+
+/**
+ * Statuts que le téléphone peut poser directement.
+ * Les trois autres (« À terminer », « Reporté », « Non réalisé ») ouvrent la
+ * fenêtre de reprise sur l'ordinateur : les envoyer d'ici ferait surgir une
+ * boîte de dialogue en pleine classe.
+ */
+export const STATUTS_TELEPHONE: StatutSeance[] = ['Prévu', 'En cours', 'Réalisé', 'Annulé']
 
 /** État de remise du support de cours pour ce créneau. */
 export type Remise = '' | 'a_faire' | 'fait' | 'sans_objet'
@@ -159,6 +177,10 @@ export type CommandType =
   | 'projection.corrige.basculer'
   | 'projection.focus.basculer'
   | 'projection.document.afficher'
+  | 'projection.minuteur.demarrer'
+  | 'projection.minuteur.pause'
+  | 'projection.minuteur.reprendre'
+  | 'projection.minuteur.arreter'
   // — progression (créneau d'une classe)
   | 'seance.statut'
   | 'seance.remise'

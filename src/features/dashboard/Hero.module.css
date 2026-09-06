@@ -1,0 +1,33 @@
+.hero {
+  padding: var(--sp-5) var(--sp-1) var(--sp-1);
+}
+
+.salut {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  background: linear-gradient(120deg, var(--c-text) 20%, var(--c-accent) 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.date {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-md);
+  color: var(--c-text-muted);
+  font-weight: 550;
+}
+
+.heure {
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text);
+  font-weight: 700;
+}
+
+.poste {
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-faible);
+}

@@ -1,0 +1,32 @@
+.ligne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.ligne:last-child { border-bottom: 0; }
+
+.texte { min-width: 0; }
+
+.titre {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.detail {
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reste {
+  padding: var(--sp-3) var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}

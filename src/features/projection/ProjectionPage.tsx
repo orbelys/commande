@@ -7,6 +7,7 @@ import ListRow from '../../components/ui/ListRow'
 import EmptyState from '../../components/ui/EmptyState'
 import { useBridge } from '../../hooks/useBridge'
 import { useProjection } from '../../hooks/useProjection'
+import Minuteur from './Minuteur'
 import styles from './ProjectionPage.module.css'
 
 /** Télécommande du cours projeté en classe. */
@@ -108,6 +109,8 @@ export default function ProjectionPage() {
           </Button>
         </div>
       </Card>
+
+      <Minuteur etat={projection.minuteur} dispo={disponible} />
 
       <Card
         titre="Sommaire"

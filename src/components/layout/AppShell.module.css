@@ -6,7 +6,7 @@
 
 .contenu {
   flex: 1;
-  padding: var(--sp-4) var(--sp-4) calc(var(--nav-h) + var(--safe-b) + var(--sp-6));
+  padding: var(--sp-3) var(--sp-4) calc(var(--nav-h) + var(--safe-b) + var(--sp-8));
 }
 
 .largeur {
@@ -15,6 +15,7 @@
   gap: var(--sp-4);
   max-width: var(--shell-max);
   margin: 0 auto;
+  animation: apparition 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
 .attente {

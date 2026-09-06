@@ -1,0 +1,84 @@
+.horaire {
+  font-family: var(--font-chiffres);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-live);
+  letter-spacing: 0.02em;
+}
+
+.titre {
+  margin-top: 2px;
+  font-size: var(--fs-xl);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.meta {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.objectif {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.memo {
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--c-warn-soft);
+  color: var(--c-warn);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.actions { margin-top: var(--sp-4); }
+
+.barre {
+  height: 7px;
+  margin-top: var(--sp-4);
+  border-radius: var(--r-full);
+  background: var(--c-surface-3);
+  overflow: hidden;
+}
+
+.remplissage {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-full);
+  background: linear-gradient(90deg, var(--c-accent), var(--c-live));
+  transition: width 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.etape {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.lien {
+  display: inline-block;
+  margin-top: var(--sp-4);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+}
+
+.repos { font-weight: 650; }
+
+.reposDetail {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  line-height: 1.5;
+}

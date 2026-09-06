@@ -6,11 +6,14 @@ interface Props {
   action?: ReactNode
   children: ReactNode
   padding?: boolean
+  /** Met la carte en avant : bordure teintée et ombre plus marquée. */
+  accent?: 'live' | 'attention' | null
 }
 
-export default function Card({ titre, action, children, padding = true }: Props) {
+export default function Card({ titre, action, children, padding = true, accent = null }: Props) {
+  const classes = [styles.carte, accent ? styles[accent] : ''].filter(Boolean).join(' ')
   return (
-    <section className={styles.carte}>
+    <section className={classes}>
       {(titre || action) && (
         <header className={styles.entete}>
           {titre && <h2 className={styles.titre}>{titre}</h2>}

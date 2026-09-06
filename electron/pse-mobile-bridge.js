@@ -28,7 +28,7 @@
 (function () {
   'use strict';
 
-  var VERSION_CONTRAT = 2;
+  var VERSION_CONTRAT = 3;
   var COL_POSTES = 'postes';
   var COL_COMMANDES = 'commandes';
   var SOUS_FILE = 'file';
@@ -131,6 +131,11 @@
           corrigeDisponible: !!s.corrigeDisponible
         };
       }),
+      minuteur: e.minuteur ? {
+        actif: !!e.minuteur.actif,
+        enPause: !!e.minuteur.enPause,
+        restant: Number(e.minuteur.restant) || 0
+      } : { actif: false, enPause: false, restant: 0 },
       documents: (e.documents || []).map(function (d, i) {
         return {
           idx: typeof d.idx === 'number' ? d.idx : i,
@@ -278,6 +283,12 @@
     'projection.document.afficher': function (p) {
       envoyerProjection({ cmd: 'doc', idx: Number(p.idx), show: p.visible !== false });
     },
+    'projection.minuteur.demarrer': function (p) {
+      envoyerProjection({ cmd: 'timer', secs: Number(p.secondes) || 0 });
+    },
+    'projection.minuteur.pause': function () { envoyerProjection({ cmd: 'timer-pause' }); },
+    'projection.minuteur.reprendre': function () { envoyerProjection({ cmd: 'timer-reprendre' }); },
+    'projection.minuteur.arreter': function () { envoyerProjection({ cmd: 'timer-stop' }); },
 
     'seance.statut': function (p) {
       var statut = String(p.statut);

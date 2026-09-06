@@ -3,27 +3,20 @@ import Card from '../../components/ui/Card'
 import PageHeader from '../../components/ui/PageHeader'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
-import ListRow from '../../components/ui/ListRow'
 import EmptyState from '../../components/ui/EmptyState'
+import StatutRapide from '../seance/StatutRapide'
 import { useBridge } from '../../hooks/useBridge'
+import { useHorloge } from '../../hooks/useHorloge'
+import { quand, situerToutes, type SeanceSituee } from '../../lib/seances'
 import { dateCourte } from '../../lib/format'
 import type { Ton } from '../../components/ui/Badge'
-import type { Seance, StatutSeance } from '../../services/bridge/types'
+import type { StatutSeance } from '../../services/bridge/types'
 import styles from './ProgressionPage.module.css'
-
-/**
- * Seuls ces quatre statuts s'appliquent en silence dans la Suite PSE.
- * « À terminer », « Reporté » et « Non réalisé » ouvrent une fenêtre de reprise
- * sur l'ordinateur (où placer le rattrapage) : les envoyer depuis le téléphone
- * ferait surgir une boîte de dialogue en pleine classe. On les laisse à
- * l'ordinateur, et le mémo de reprise suffit à noter où l'on s'est arrêté.
- */
-const STATUTS: StatutSeance[] = ['Prévu', 'En cours', 'Fait', 'Annulé']
 
 const TONS: Record<StatutSeance, Ton> = {
   'Prévu': 'neutre',
-  'En cours': 'accent',
-  'Fait': 'ok',
+  'En cours': 'live',
+  'Réalisé': 'ok',
   'À terminer': 'attention',
   'Reporté': 'attention',
   'Non réalisé': 'danger',
@@ -31,93 +24,192 @@ const TONS: Record<StatutSeance, Ton> = {
 }
 
 const REMISES = [
-  { valeur: 'fait', libelle: 'Support remis' },
+  { valeur: 'remis', libelle: 'Remis' },
+  { valeur: 'partiel', libelle: 'En partie' },
   { valeur: 'a_faire', libelle: 'À remettre' },
-  { valeur: 'sans_objet', libelle: 'Sans objet' },
 ] as const
 
-/** Séances de progression : changer le statut, la remise, le mémo de reprise. */
+/** Séances de la période : statut, remise du support, mémo de reprise. */
 export default function ProgressionPage() {
-  const { snapshot, envoyer, status } = useBridge()
+  const maintenant = useHorloge(30_000)
+  const { snapshot } = useBridge()
   const [ouverte, setOuverte] = useState<string | null>(null)
-  const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
 
-  const seances = useMemo(() => {
-    const liste = [...(snapshot?.seances ?? [])]
-    liste.sort((a, b) => (a.date + a.debut).localeCompare(b.date + b.debut))
-    return liste
-  }, [snapshot])
+  const groupes = useMemo(() => {
+    const toutes = situerToutes(snapshot?.seances ?? [], maintenant)
+    const passee = (s: SeanceSituee) => s.moment === 'passee' || s.moment === 'autre_jour'
+    const aReprendre = (s: SeanceSituee) =>
+      passee(s) && ['À terminer', 'Reporté', 'Non réalisé'].includes(s.statut)
+
+    return {
+      aCloturer: toutes.filter((s) => s.aCloturer),
+      aReprendre: toutes.filter(aReprendre),
+      maintenant: toutes.filter((s) => s.moment === 'en_cours' || s.moment === 'imminente'),
+      suite: toutes.filter(
+        (s) =>
+          !s.aCloturer &&
+          !aReprendre(s) &&
+          s.moment !== 'en_cours' &&
+          s.moment !== 'imminente' &&
+          !passee(s),
+      ),
+      faites: toutes.filter(
+        (s) => passee(s) && !s.aCloturer && !aReprendre(s),
+      ),
+    }
+  }, [snapshot, maintenant])
 
   if (!snapshot?.capacites.progression) {
     return (
       <>
-        <PageHeader titre="Progression" detail="Séances de la semaine" />
+        <PageHeader titre="Progression" detail="Séances de la période" />
         <Card>
           <EmptyState
             titre="Progression indisponible"
-            detail="Le poste Electron ne publie pas la progression pour le moment."
+            detail="L’ordinateur ne publie pas la progression pour le moment."
           />
         </Card>
       </>
     )
   }
 
+  const total =
+    groupes.aCloturer.length +
+    groupes.aReprendre.length +
+    groupes.maintenant.length +
+    groupes.suite.length +
+    groupes.faites.length
+
   return (
     <>
       <PageHeader titre="Progression" detail="Appuyez sur une séance pour la mettre à jour" />
 
-      <Card padding={false}>
-        {seances.length === 0 ? (
+      {total === 0 && (
+        <Card>
           <EmptyState titre="Aucune séance" detail="Rien n’est publié pour cette période." />
-        ) : (
-          seances.map((s) => (
-            <div key={s.id}>
-              <ListRow
-                titre={`${dateCourte(s.date)} · ${s.debut} — ${s.classeNom}`}
-                sousTitre={[s.moduleLabel, s.seance, s.objectif].filter(Boolean).join(' · ')}
-                actif={ouverte === s.id}
-                droite={<Badge ton={TONS[s.statut]}>{s.statut}</Badge>}
-                onClick={() => setOuverte(ouverte === s.id ? null : s.id)}
-              />
-              {ouverte === s.id && <PanneauSeance seance={s} dispo={dispo} envoyer={envoyer} />}
-            </div>
-          ))
-        )}
-      </Card>
+        </Card>
+      )}
+
+      {groupes.aCloturer.length > 0 && (
+        <Bloc
+          titre="À clôturer"
+          accent="attention"
+          compte={groupes.aCloturer.length}
+          seances={groupes.aCloturer}
+          ouverte={ouverte}
+          setOuverte={setOuverte}
+        />
+      )}
+
+      {groupes.aReprendre.length > 0 && (
+        <Bloc
+          titre="À reprendre"
+          compte={groupes.aReprendre.length}
+          seances={groupes.aReprendre}
+          ouverte={ouverte}
+          setOuverte={setOuverte}
+        />
+      )}
+
+      {groupes.maintenant.length > 0 && (
+        <Bloc
+          titre="Maintenant"
+          accent="live"
+          compte={groupes.maintenant.length}
+          seances={groupes.maintenant}
+          ouverte={ouverte}
+          setOuverte={setOuverte}
+        />
+      )}
+
+      {groupes.suite.length > 0 && (
+        <Bloc
+          titre="La suite"
+          compte={groupes.suite.length}
+          seances={groupes.suite}
+          ouverte={ouverte}
+          setOuverte={setOuverte}
+        />
+      )}
+
+      {groupes.faites.length > 0 && (
+        <Bloc
+          titre="Déjà passées"
+          compte={groupes.faites.length}
+          seances={groupes.faites}
+          ouverte={ouverte}
+          setOuverte={setOuverte}
+        />
+      )}
     </>
   )
 }
 
-function PanneauSeance({
-  seance,
-  dispo,
-  envoyer,
+function Bloc({
+  titre,
+  accent = null,
+  compte,
+  seances,
+  ouverte,
+  setOuverte,
 }: {
-  seance: Seance
-  dispo: boolean
-  envoyer: ReturnType<typeof useBridge>['envoyer']
+  titre: string
+  accent?: 'live' | 'attention' | null
+  compte: number
+  seances: SeanceSituee[]
+  ouverte: string | null
+  setOuverte: (id: string | null) => void
 }) {
+  return (
+    <Card
+      titre={titre}
+      accent={accent}
+      padding={false}
+      action={<Badge ton={accent ?? 'neutre'}>{compte}</Badge>}
+    >
+      {seances.map((s) => (
+        <div key={s.id}>
+          <button
+            type="button"
+            className={`${styles.ligne} ${ouverte === s.id ? styles.ligneOuverte : ''}`}
+            onClick={() => setOuverte(ouverte === s.id ? null : s.id)}
+            aria-expanded={ouverte === s.id}
+          >
+            <span className={styles.gauche}>
+              <span className={styles.horaire}>{s.debut || '—'}</span>
+              <span className={styles.jour}>{dateCourte(s.date)}</span>
+            </span>
+            <span className={styles.texte}>
+              <span className={styles.classe}>{s.classeNom}</span>
+              <span className={styles.detail}>
+                {[s.moduleLabel || s.module, s.seance, s.objectif].filter(Boolean).join(' · ') ||
+                  'Séance'}
+              </span>
+              {s.moment !== 'autre_jour' && s.moment !== 'passee' && (
+                <span className={styles.quand}>{quand(s)}</span>
+              )}
+            </span>
+            <Badge ton={TONS[s.statut]}>{s.statut}</Badge>
+          </button>
+          {ouverte === s.id && <Panneau seance={s} />}
+        </div>
+      ))}
+    </Card>
+  )
+}
+
+function Panneau({ seance }: { seance: SeanceSituee }) {
+  const { envoyer, status, snapshot } = useBridge()
   const [memo, setMemo] = useState(seance.memo)
+  const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
 
   return (
     <div className={styles.panneau}>
       <p className={styles.section}>Statut</p>
-      <div className={styles.choix}>
-        {STATUTS.map((st) => (
-          <Button
-            key={st}
-            variante={seance.statut === st ? 'principal' : 'secondaire'}
-            disabled={!dispo}
-            onClick={() => envoyer('seance.statut', { seanceId: seance.id, statut: st })}
-          >
-            {st}
-          </Button>
-        ))}
-      </div>
-
+      <StatutRapide seance={seance} />
       <p className={styles.note}>
-        « À terminer » et « Reporté » se choisissent sur l’ordinateur : ils ouvrent la fenêtre
-        de reprise. Notez plutôt où vous en êtes dans le mémo ci-dessous.
+        « À terminer » et « Reporté » se choisissent sur l’ordinateur : ils ouvrent la fenêtre de
+        reprise, qui demande où rattraper. Notez plutôt où vous en êtes ci-dessous.
       </p>
 
       <p className={styles.section}>Support de cours</p>
@@ -125,7 +217,8 @@ function PanneauSeance({
         {REMISES.map((r) => (
           <Button
             key={r.valeur}
-            variante={seance.remise === r.valeur ? 'principal' : 'secondaire'}
+            taille="sm"
+            variante={seance.remise === r.valeur ? 'principal' : 'doux'}
             disabled={!dispo}
             onClick={() => envoyer('seance.remise', { seanceId: seance.id, remise: r.valeur })}
           >
@@ -152,7 +245,7 @@ function PanneauSeance({
         Enregistrer le mémo
       </Button>
 
-      {seance.salle && <p className={styles.detail}>Salle {seance.salle}</p>}
+      {seance.salle && <p className={styles.salle}>Salle {seance.salle}</p>}
     </div>
   )
 }

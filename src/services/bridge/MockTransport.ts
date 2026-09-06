@@ -137,6 +137,40 @@ export class MockTransport implements Transport {
         }
         break
 
+      case 'projection.minuteur.demarrer':
+        if (p) {
+          this.snapshot = {
+            ...s,
+            projection: {
+              ...p,
+              minuteur: { actif: true, enPause: false, restant: Number(payload.secondes) || 0 },
+            },
+          }
+        }
+        break
+
+      case 'projection.minuteur.pause':
+      case 'projection.minuteur.reprendre':
+        if (p?.minuteur) {
+          this.snapshot = {
+            ...s,
+            projection: {
+              ...p,
+              minuteur: { ...p.minuteur, enPause: command.type.endsWith('pause') },
+            },
+          }
+        }
+        break
+
+      case 'projection.minuteur.arreter':
+        if (p) {
+          this.snapshot = {
+            ...s,
+            projection: { ...p, minuteur: { actif: false, enPause: false, restant: 0 } },
+          }
+        }
+        break
+
       case 'seance.statut':
         this.snapshot = this.majSeance(String(payload.seanceId), {
           statut: String(payload.statut) as StatutSeance,
