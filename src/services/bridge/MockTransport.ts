@@ -187,6 +187,41 @@ export class MockTransport implements Transport {
         this.snapshot = this.majSeance(String(payload.seanceId), { memo: String(payload.memo) })
         break
 
+      case 'seance.absents': {
+        const codes = String(payload.codes || '').split(',').map((c) => c.trim()).filter(Boolean)
+        const seanceId = String(payload.seanceId)
+        const maj = this.majSeance(seanceId, { absents: codes })
+        const classeId = seanceId.split('|')[0]
+        this.snapshot = {
+          ...maj,
+          classes: maj.classes.map((c) => {
+            if (c.id !== classeId) return c
+            const dette = new Set(c.aRattraper)
+            codes.forEach((x) => dette.add(x))
+            // Un code décoché ici sort de la dette s'il n'est absent nulle part ailleurs.
+            c.aRattraper.forEach((x) => {
+              const ailleurs = maj.seances.some(
+                (s) => s.classeId === classeId && s.id !== seanceId && s.absents.includes(x),
+              )
+              if (!codes.includes(x) && !ailleurs) dette.delete(x)
+            })
+            return { ...c, aRattraper: [...dette] }
+          }),
+        }
+        break
+      }
+
+      case 'classe.rattrape':
+        this.snapshot = {
+          ...s,
+          classes: s.classes.map((c) =>
+            c.id === String(payload.classeId)
+              ? { ...c, aRattraper: c.aRattraper.filter((x) => x !== String(payload.code)) }
+              : c,
+          ),
+        }
+        break
+
       case 'action.terminer':
         this.snapshot = {
           ...s,

@@ -28,7 +28,7 @@
 (function () {
   'use strict';
 
-  var VERSION_CONTRAT = 3;
+  var VERSION_CONTRAT = 4;
   var COL_POSTES = 'postes';
   var COL_COMMANDES = 'commandes';
   var SOUS_FILE = 'file';
@@ -377,7 +377,7 @@
    * Demande PSE_PROG.slotsForDate(iso) — voir PATCH-progression.md. */
   function seances(iso, avant, apres) {
     if (!capacites().progression) return [];
-    var out = [];
+    var out = [], abs = absences();
     for (var d = -avant; d <= apres; d++) {
       var jour = decalerIso(iso, d);
       var lot = safe(function () { return window.PSE_PROG.slotsForDate(jour); }) || [];
@@ -401,26 +401,92 @@
           objectif: s.objectif || '',
           statut: s.statut || 'Prévu',
           remise: s.remise || '',
-          memo: s.memo || ''
+          memo: s.memo || '',
+          absents: abs[[x.cls, x.wkey, slotId].join('|')] || []
         });
       });
     }
     return out;
   }
 
-  /* Classes : intitulés et effectifs uniquement, jamais la liste des élèves. */
+  /* ══ Absences et rattrapages ══════════════════════════════
+   * Seuls les CODES du publipostage circulent — jamais un nom, jamais un
+   * prénom. Ce sont les mêmes quatre caractères que sur les documents
+   * distribués : le téléphone sert à pointer ce qui reste dans la main.
+   */
+  var CLE_ABSENCES = 'pse-mobile-absences';
+  var CLE_RATTRAPAGES = 'pse-mobile-rattrapages';
+
+  function codesParClasse() {
+    var res = safe(function () { return window.studentCodesAPI.readAllSync(); });
+    var entrees = (res && res.ok && Array.isArray(res.entries)) ? res.entries : [];
+    var parClasse = {};
+    entrees.forEach(function (e) {
+      var code = String((e && e.userCode) || '').trim();
+      if (!code) return;
+      var cl = String((e && e.classe) || '').trim();
+      if (!parClasse[cl]) parClasse[cl] = [];
+      parClasse[cl].push({ code: code, ordre: Number(e.order) || 0 });
+    });
+    Object.keys(parClasse).forEach(function (cl) {
+      parClasse[cl] = parClasse[cl]
+        .sort(function (a, b) { return a.ordre - b.ordre || a.code.localeCompare(b.code); })
+        .map(function (x) { return x.code; });
+    });
+    return parClasse;
+  }
+
+  function absences() { return lireJson(CLE_ABSENCES) || {}; }
+  function rattrapages() { return lireJson(CLE_RATTRAPAGES) || {}; }
+
+  function poserAbsents(seanceId, codes) {
+    var toutes = absences();
+    var avant = toutes[seanceId] || [];
+    toutes[seanceId] = codes;
+    ecrireJson(CLE_ABSENCES, toutes);
+
+    // Un absent doit son support : il entre dans la dette de sa classe.
+    var classeId = String(seanceId).split('|')[0];
+    var dettes = rattrapages();
+    var liste = dettes[classeId] || [];
+    codes.forEach(function (c) { if (liste.indexOf(c) < 0) liste.push(c); });
+    // Un code décoché ici, et absent nulle part ailleurs, sort de la dette.
+    avant.filter(function (c) { return codes.indexOf(c) < 0; }).forEach(function (c) {
+      var ailleurs = Object.keys(toutes).some(function (id) {
+        return id !== seanceId && String(id).split('|')[0] === classeId &&
+          (toutes[id] || []).indexOf(c) >= 0;
+      });
+      if (!ailleurs) liste = liste.filter(function (x) { return x !== c; });
+    });
+    dettes[classeId] = liste;
+    ecrireJson(CLE_RATTRAPAGES, dettes);
+  }
+
+  function marquerRattrape(classeId, code) {
+    var dettes = rattrapages();
+    dettes[classeId] = (dettes[classeId] || []).filter(function (x) { return x !== code; });
+    ecrireJson(CLE_RATTRAPAGES, dettes);
+  }
+
+  /* Classes : intitulés, effectifs et codes — jamais la liste nominative. */
   function classes() {
     var brut =
       safe(function () { return window.PSE_CL && window.PSE_CL.all && window.PSE_CL.all(); }) ||
       safe(function () { return JSON.parse(window.StorageService.get('pse-classes-v1') || '[]'); }) ||
       [];
     if (!Array.isArray(brut)) return [];
+    var codes = codesParClasse();
+    var dettes = rattrapages();
     return brut.map(function (c) {
+      var id = String(c.id || '');
+      var nom = String(c.nom || c.id || '');
       return {
-        id: String(c.id || ''),
-        nom: String(c.nom || c.id || ''),
+        id: id,
+        nom: nom,
         diplome: String(c.diplome || ''),
-        effectif: Array.isArray(c.eleves) ? c.eleves.length : 0
+        effectif: Array.isArray(c.eleves) ? c.eleves.length : 0,
+        codes: codes[nom] || codes[id] || [],
+        aRattraper: dettes[id] || []
       };
     });
   }
@@ -508,6 +574,14 @@
     },
     'seance.remise': function (p) { ecrireCreneau(p, 'remise', String(p.remise)); },
     'seance.memo': function (p) { ecrireCreneau(p, 'memo', String(p.memo || '')); },
+    'seance.absents': function (p) {
+      var codes = String(p.codes || '').split(',').map(function (c) { return c.trim(); })
+        .filter(Boolean);
+      poserAbsents(String(p.seanceId || ''), codes);
+    },
+    'classe.rattrape': function (p) {
+      marquerRattrape(String(p.classeId || ''), String(p.code || ''));
+    },
 
     'action.terminer': function (p) {
       var d = window.PSE_REUNIONS.data();

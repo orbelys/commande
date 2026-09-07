@@ -15,6 +15,8 @@ const LIBELLES: Record<CommandType, string> = {
   'seance.statut': 'Changer le statut de la séance',
   'seance.remise': 'Marquer la remise du support',
   'seance.memo': 'Écrire le mémo de reprise',
+  'seance.absents': 'Pointer les absents',
+  'classe.rattrape': 'Marquer un support rattrapé',
   'action.creer': 'Créer une action',
   'action.terminer': 'Terminer une action',
   'note.rapide': 'Note rapide',

@@ -9,7 +9,7 @@
  * journée d'agenda, actions de réunion.
  */
 
-export const VERSION_CONTRAT = 3
+export const VERSION_CONTRAT = 4
 
 /** État du lien avec Electron. */
 export type ConnectionStatus = 'offline' | 'connecting' | 'online'
@@ -35,6 +35,19 @@ export interface Classe {
   nom: string
   diplome: string
   effectif: number
+  /**
+   * Codes élèves de la classe, tels qu'imprimés sur les documents distribués.
+   * PSEUDONYMES : ce sont les userCode à quatre caractères du publipostage,
+   * jamais des noms. Ils permettent de pointer une absence depuis le téléphone
+   * sans qu'aucune identité ne quitte l'ordinateur.
+   */
+  codes: string[]
+  /**
+   * Codes qui n'ont pas reçu leur support et attendent un rattrapage.
+   * Un code y entre quand on le marque absent, il en sort quand on le pointe
+   * comme rattrapé.
+   */
+  aRattraper: string[]
 }
 
 /** Un document affiché dans le cours projeté (P.docToggle). */
@@ -123,6 +136,8 @@ export interface Seance {
   statut: StatutSeance
   remise: Remise
   memo: string
+  /** Codes élèves absents à cette séance (pseudonymes). */
+  absents: string[]
 }
 
 /** Une ligne de l'agenda du jour (cours d'EDT ou événement). */
@@ -185,6 +200,8 @@ export type CommandType =
   | 'seance.statut'
   | 'seance.remise'
   | 'seance.memo'
+  | 'seance.absents'
+  | 'classe.rattrape'
   // — actions et notes
   | 'action.creer'
   | 'action.terminer'

@@ -5,6 +5,8 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import EmptyState from '../../components/ui/EmptyState'
 import StatutRapide from '../seance/StatutRapide'
+import Absents from '../seance/Absents'
+import ARattraper from '../seance/ARattraper'
 import { useBridge } from '../../hooks/useBridge'
 import { useHorloge } from '../../hooks/useHorloge'
 import { quand, situerToutes, type SeanceSituee } from '../../lib/seances'
@@ -189,7 +191,12 @@ function Bloc({
                 <span className={styles.quand}>{quand(s)}</span>
               )}
             </span>
-            <Badge ton={TONS[s.statut]}>{s.statut}</Badge>
+            <span className={styles.badges}>
+              {s.absents.length > 0 && (
+                <Badge ton="danger">{s.absents.length} abs.</Badge>
+              )}
+              <Badge ton={TONS[s.statut]}>{s.statut}</Badge>
+            </span>
           </button>
           {ouverte === s.id && <Panneau seance={s} />}
         </div>
@@ -226,6 +233,12 @@ function Panneau({ seance }: { seance: SeanceSituee }) {
           </Button>
         ))}
       </div>
+
+      <p className={styles.section}>Absents (codes)</p>
+      <Absents seance={seance} />
+
+      <p className={styles.section}>À rattraper dans la classe</p>
+      <ARattraper classeId={seance.classeId} />
 
       <p className={styles.section}>Mémo de reprise</p>
       <textarea

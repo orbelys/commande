@@ -50,6 +50,7 @@ function seance(
     objectif: '',
     remise: '',
     memo: '',
+    absents: [],
     ...champs,
   }
 }
@@ -135,10 +136,14 @@ export function snapshotDemo(): Snapshot {
     ],
 
     classes: [
-      { id: 'cl-01', nom: 'Groupe A', diplome: 'CAP', effectif: 14 },
-      { id: 'cl-02', nom: 'Groupe B', diplome: 'CAP', effectif: 12 },
-      { id: 'cl-03', nom: 'Groupe C', diplome: 'Bac pro', effectif: 24 },
-      { id: 'cl-04', nom: 'Groupe D', diplome: 'Bac pro', effectif: 21 },
+      { id: 'cl-01', nom: 'Groupe A', diplome: 'CAP', effectif: 6,
+        codes: ['AA01', 'AA02', 'AA03', 'AA04', 'AA05', 'AA06'], aRattraper: ['AA03'] },
+      { id: 'cl-02', nom: 'Groupe B', diplome: 'CAP', effectif: 5,
+        codes: ['BB01', 'BB02', 'BB03', 'BB04', 'BB05'], aRattraper: [] },
+      { id: 'cl-03', nom: 'Groupe C', diplome: 'Bac pro', effectif: 6,
+        codes: ['CC01', 'CC02', 'CC03', 'CC04', 'CC05', 'CC06'], aRattraper: ['CC02', 'CC05'] },
+      { id: 'cl-04', nom: 'Groupe D', diplome: 'Bac pro', effectif: 5,
+        codes: ['DD01', 'DD02', 'DD03', 'DD04', 'DD05'], aRattraper: [] },
     ],
 
     actions: [

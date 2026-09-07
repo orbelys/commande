@@ -30,7 +30,13 @@ export default function ClassesPage() {
                 key={c.id}
                 titre={c.nom}
                 sousTitre={`${c.diplome} · ${c.effectif} élèves · ${aVenir} séance(s) à venir`}
-                droite={aReprendre > 0 ? <Badge ton="attention">{aReprendre} à reprendre</Badge> : undefined}
+                droite={
+                  c.aRattraper.length > 0 ? (
+                    <Badge ton="attention">{c.aRattraper.length} à rattraper</Badge>
+                  ) : aReprendre > 0 ? (
+                    <Badge ton="attention">{aReprendre} à reprendre</Badge>
+                  ) : undefined
+                }
               />
             )
           })

@@ -3,6 +3,7 @@ import Badge from '../../components/ui/Badge'
 import EmptyState from '../../components/ui/EmptyState'
 import { useBridge } from '../../hooks/useBridge'
 import { useHorloge } from '../../hooks/useHorloge'
+import { classeDepuisTitre, couleurDe } from '../../lib/couleurs'
 import styles from './JourneeCard.module.css'
 import type { Ton } from '../../components/ui/Badge'
 
@@ -39,6 +40,8 @@ export default function JourneeCard() {
             const fin = enMinutes(e.fin)
             const passe = fin !== null && nowMin >= fin
             const actif = debut !== null && nowMin >= debut && (fin === null || nowMin < fin)
+            const cle = e.classeNom || classeDepuisTitre(e.titre)
+            const couleur = couleurDe(cle)
             return (
               <li
                 key={e.id}
@@ -48,9 +51,12 @@ export default function JourneeCard() {
               >
                 <span className={styles.heure}>{e.debut || '—'}</span>
                 <span className={styles.trait} aria-hidden="true">
-                  <span className={styles.point} />
+                  <span
+                    className={styles.point}
+                    style={actif || !passe ? { background: couleur.vif } : undefined}
+                  />
                 </span>
-                <span className={styles.corps}>
+                <span className={styles.corps} style={{ borderLeftColor: couleur.vif }}>
                   <span className={styles.titre}>{e.titre}</span>
                   <span className={styles.detail}>
                     {[e.lieu, e.fin && `jusqu’à ${e.fin}`].filter(Boolean).join(' · ')}
