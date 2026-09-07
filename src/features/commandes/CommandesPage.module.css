@@ -1,0 +1,10 @@
+/* Bandeau expliquant qu'une commande non partie n'est pas une commande perdue. */
+.file {
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--c-text-muted);
+}
+
+.file strong {
+  color: var(--c-text);
+}

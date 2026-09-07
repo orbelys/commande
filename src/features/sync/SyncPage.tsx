@@ -4,6 +4,7 @@ import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import { useBridge } from '../../hooks/useBridge'
+import { usePoste } from '../../hooks/usePoste'
 import { depuis } from '../../lib/format'
 import styles from './SyncPage.module.css'
 
@@ -25,6 +26,7 @@ export default function SyncPage() {
   const enAttente = commandes.filter(
     (c) => c.statut !== 'appliquee' && c.statut !== 'echouee',
   ).length
+  const poste = usePoste()
   const capacites = snapshot?.capacites
 
   return (
@@ -41,9 +43,14 @@ export default function SyncPage() {
 
       <Card titre="Lien Electron">
         <dl className={styles.liste}>
-          <Ligne label="État">
-            <Badge ton={status === 'online' ? 'ok' : status === 'connecting' ? 'attention' : 'neutre'}>
-              {status === 'online' ? 'Connecté' : status === 'connecting' ? 'Connexion…' : 'Hors ligne'}
+          <Ligne label="Téléphone">
+            <Badge ton={status === 'offline' ? 'neutre' : 'ok'}>
+              {status === 'offline' ? 'Sans réseau' : 'En ligne'}
+            </Badge>
+          </Ligne>
+          <Ligne label="Ordinateur">
+            <Badge ton={poste.etat === 'actif' ? 'ok' : poste.etat === 'en_veille' ? 'attention' : 'neutre'}>
+              {poste.libelle}
             </Badge>
           </Ligne>
           <Ligne label="Transport">{transportLibelle}</Ligne>
@@ -115,7 +122,14 @@ export default function SyncPage() {
         </p>
         <p className={styles.note}>
           Aucun nom d’élève, aucune donnée de santé ni aucun aménagement ne transite par le
-          téléphone : l’instantané ne contient que des intitulés de cours, de classes et de créneaux.
+          téléphone. Les codes du publipostage circulent pour le pointage des absents : ils sont
+          pseudonymes.
+        </p>
+        <p className={styles.note}>
+          Le téléphone et l’ordinateur ne se parlent pas directement : ils passent tous les deux par
+          Firebase. Ils n’ont donc jamais besoin d’être sur le même réseau. Si l’ordinateur est
+          éteint, vos décisions sont mises en file et s’appliquent à son réveil ; si le téléphone
+          n’a pas de réseau, elles patientent sur l’appareil, même application fermée.
         </p>
       </Card>
     </>

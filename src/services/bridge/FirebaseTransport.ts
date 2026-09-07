@@ -105,7 +105,29 @@ export class FirebaseTransport implements Transport {
       import('firebase/firestore'),
     ])
     const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(config)
-    this.sdk = { app, auth: authMod.getAuth(app), authMod, db: fs.getFirestore(app), fs }
+
+    /*
+     * Cache local persistant : c'est lui qui rend l'application utilisable
+     * hors ligne — dans le métro, dans un couloir sans réseau.
+     *
+     * En lecture : le dernier instantané reçu reste affiché.
+     * En écriture : les commandes sont mises en file sur l'appareil et
+     * partent dès que le réseau revient, même si la page a été fermée
+     * entre-temps. Sans cela, elles vivaient en mémoire et disparaissaient.
+     *
+     * Si le navigateur refuse le stockage (navigation privée), on retombe
+     * sur un cache mémoire : l'application fonctionne, sans la file durable.
+     */
+    let db: unknown
+    try {
+      db = fs.initializeFirestore(app, {
+        localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }),
+      })
+    } catch {
+      db = fs.getFirestore(app)
+    }
+
+    this.sdk = { app, auth: authMod.getAuth(app), authMod, db, fs }
     return this.sdk
   }
 

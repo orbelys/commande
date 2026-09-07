@@ -22,12 +22,13 @@
   flex-shrink: 0;
 }
 
-.online { color: var(--c-ok); background: var(--c-ok-soft); border-color: transparent; }
-.connecting { color: var(--c-warn); background: var(--c-warn-soft); border-color: transparent; }
-.offline { color: var(--c-text-muted); }
+.actif { color: var(--c-ok); background: var(--c-ok-soft); border-color: transparent; }
+.en_veille { color: var(--c-warn); background: var(--c-warn-soft); border-color: transparent; }
+.connexion { color: var(--c-warn); background: var(--c-warn-soft); border-color: transparent; }
+.hors_ligne { color: var(--c-text-muted); }
 
-.online .voyant { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-ok) 20%, transparent); }
-.connecting .voyant { animation: pulse 1.1s ease-in-out infinite; }
+.actif .voyant { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-ok) 20%, transparent); }
+.connexion .voyant { animation: pulse 1.1s ease-in-out infinite; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
