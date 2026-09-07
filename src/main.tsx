@@ -5,6 +5,9 @@ import App from './App'
 import { BridgeProvider } from './services/bridge/BridgeProvider'
 import './styles/global.css'
 
+// Safari restitue la position de défilement au rechargement : on repart du haut.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+
 const container = document.getElementById('root')
 if (!container) throw new Error('Element #root introuvable dans index.html')
 

@@ -468,23 +468,43 @@
     ecrireJson(CLE_RATTRAPAGES, dettes);
   }
 
-  /* Classes : intitulés, effectifs et codes — jamais la liste nominative. */
+  /* Classes : intitulés, effectifs et codes — jamais la liste nominative.
+   *
+   * PIÈGE : trois listes coexistent, avec des identifiants différents.
+   *   • progression (pse-prog-config) : id « B1AGORA1 », nom « B1AGO1 »
+   *   • carnet de classes            : id « cls0 »,     nom « B1AGO1 »
+   *   • fichier de codes             : classe « B1AGO1 »
+   * Les séances portent l'identifiant de la PROGRESSION : c'est donc lui qui
+   * fait foi ici, sinon le téléphone ne relie jamais une séance à sa classe.
+   * Le nom sert de pont vers les deux autres listes.
+   */
   function classes() {
-    var brut =
-      safe(function () { return window.PSE_CL && window.PSE_CL.all && window.PSE_CL.all(); }) ||
-      safe(function () { return JSON.parse(window.StorageService.get('pse-classes-v1') || '[]'); }) ||
-      [];
-    if (!Array.isArray(brut)) return [];
+    var cfgProg = safe(function () {
+      return JSON.parse(window.StorageService.get('pse-prog-config') || '{}');
+    }) || {};
+    var listeProg = Array.isArray(cfgProg.classes) ? cfgProg.classes : [];
+
+    var carnet = safe(function () {
+      return JSON.parse(window.StorageService.get('pse-classes-v1') || '[]');
+    }) || [];
+    if (!Array.isArray(carnet)) carnet = carnet.classes || [];
+    var effectifs = {};
+    carnet.forEach(function (c) {
+      var nom = String((c && c.nom) || '').trim();
+      if (nom) effectifs[nom] = Array.isArray(c.eleves) ? c.eleves.length : 0;
+    });
+
     var codes = codesParClasse();
     var dettes = rattrapages();
-    return brut.map(function (c) {
+
+    return listeProg.map(function (c) {
       var id = String(c.id || '');
-      var nom = String(c.nom || c.id || '');
+      var nom = String(c.nom || id).trim();
       return {
         id: id,
         nom: nom,
-        diplome: String(c.diplome || ''),
-        effectif: Array.isArray(c.eleves) ? c.eleves.length : 0,
+        diplome: String(c.niv || c.diplome || ''),
+        effectif: effectifs[nom] || 0,
         codes: codes[nom] || codes[id] || [],
         aRattraper: dettes[id] || []
       };
