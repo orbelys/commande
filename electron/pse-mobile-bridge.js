@@ -102,7 +102,8 @@
       progression: !!(window.PSE_PROG &&
         typeof window.PSE_PROG.slotsForDate === 'function' &&
         typeof window.PSE_PROG.setSlot === 'function'),
-      agenda: !!(window.PSE_AGENDA && typeof window.PSE_AGENDA.journee === 'function'),
+      agenda: coursDuJour(isoAujourdhui()).length > 0 ||
+        !!(window.PSE_AGENDA && typeof window.PSE_AGENDA.journee === 'function'),
       actions: !!(window.PSE_REUNIONS && typeof window.PSE_REUNIONS.data === 'function')
     };
   }
@@ -146,22 +147,151 @@
     };
   }
 
-  function journee(iso) {
-    if (!window.PSE_AGENDA || typeof window.PSE_AGENDA.journee !== 'function') return [];
-    var j = safe(function () { return window.PSE_AGENDA.journee(iso); }) || {};
-    var lignes = (j.horaires || []).concat(j.sansHeure || []);
-    return lignes.map(function (e) {
+  /* PSE_AGENDA.journee(iso) rend
+       { jour, aFaire, horaires, journee: <sans horaire>, total }
+     Les événements sans horaire sont bien sous la clé « journee », pas
+     « sansHeure ». Et la classe est dans « classes » (tableau), pas « classe ».
+     L'emploi du temps vient de l'import ICS Pronote (pse-personal-edt-v1) :
+     il est aussi à jour que le dernier import, pas en direct. */
+  var ETATS_LISIBLES = { tenu: 'Réalisé', annule: 'Annulé', reporte: 'Reporté' };
+
+  function nomClasses(e) {
+    var c = e && e.classes;
+    if (Array.isArray(c)) {
+      return c.map(function (x) {
+        return typeof x === 'string' ? x : String((x && (x.nom || x.id)) || '');
+      }).filter(Boolean).join(', ');
+    }
+    return String((e && e.classe) || '');
+  }
+
+  /* ── Emploi du temps personnel ────────────────────────────
+   * La Suite PSE conserve l'export ICS de Pronote dans la clé
+   * pse-personal-edt-v1 (cache.raw). On le lit ici directement : le module
+   * PSE_ICS auquel agenda-import-shared.js fait appel n'existe pas dans le
+   * projet, donc cette branche échouait en silence.
+   *
+   * À retenir : l'emploi du temps est aussi frais que le dernier import ICS.
+   * Ce n'est pas une liaison en direct avec Pronote.
+   */
+  var CLE_EDT = 'pse-personal-edt-v1';
+
+  function deplierIcs(texte) {
+    // Une ligne ICS peut être coupée : la suite commence par une espace.
+    return String(texte || '').replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '');
+  }
+
+  /* Pronote exporte en UTC (suffixe Z) et sans VTIMEZONE : 073000Z, c'est
+     09:30 à Paris l'été. Sans cette conversion, toutes les heures du téléphone
+     seraient décalées, et « en cours » se déclencherait au mauvais moment. */
+  function icsDate(valeur) {
+    var v = String(valeur || '').trim();
+    var m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?(Z)?/.exec(v);
+    if (!m) return null;
+    var p2 = function (n) { return String(n).padStart(2, '0'); };
+    if (m[4] && m[7] === 'Z') {
+      var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)));
       return {
-        id: 'ev:' + e.id,
-        type: e.genre === 'cours' ? 'cours' : 'evenement',
-        debut: e.heure || '',
-        fin: e.heureFin || '',
-        titre: String(e.titre || ''),
-        lieu: String(e.lieu || ''),
-        classeNom: String(e.classe || ''),
-        statut: String(e.etatSeance || '')
+        jour: d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()),
+        heure: p2(d.getHours()) + ':' + p2(d.getMinutes())
       };
+    }
+    return { jour: m[1] + '-' + m[2] + '-' + m[3], heure: m[4] ? m[4] + ':' + m[5] : '' };
+  }
+
+  /* Les intitulés Pronote de réunions listent parfois tous les participants
+     (« CONCERTATION - MARTIN A., DUPONT B., … »). Ces noms de collègues n'ont
+     rien à faire sur un téléphone ni dans le cloud : on ne garde que l'objet. */
+  function sansListeDeNoms(titre) {
+    var s = String(titre || '');
+    var coupe = s.split(' - ');
+    if (coupe.length > 1) {
+      var suite = coupe.slice(1).join(' - ');
+      var virgules = (suite.match(/,/g) || []).length;
+      var ressembleAUneListe = virgules >= 2 && /[A-ZÉÈÀÂÎÔÛÇ]{2,}[^,]*,/.test(suite);
+      if (ressembleAUneListe) return coupe[0].trim();
+    }
+    return s.length > 90 ? s.slice(0, 88).trim() + '…' : s;
+  }
+
+  function icsTexte(v) {
+    return String(v || '')
+      .replace(/\\n/gi, ' ')
+      .replace(/\\,/g, ',')
+      .replace(/\;/g, ';')
+      .trim();
+  }
+
+  function coursDuJour(iso) {
+    var brut = safe(function () {
+      return (JSON.parse(window.StorageService.get(CLE_EDT) || '{}').cache || {}).raw || '';
     });
+    if (!brut) return [];
+
+    var out = [];
+    deplierIcs(brut).split('\n').reduce(function (courant, ligne) {
+      if (ligne.indexOf('BEGIN:VEVENT') === 0) return {};
+      if (ligne.indexOf('END:VEVENT') === 0) {
+        if (courant && courant.jour === iso) out.push(courant);
+        return null;
+      }
+      if (!courant) return courant;
+      var sep = ligne.indexOf(':');
+      if (sep < 0) return courant;
+      var cle = ligne.slice(0, sep).split(';')[0].toUpperCase();
+      var val = ligne.slice(sep + 1);
+      if (cle === 'DTSTART') { var d = icsDate(val); if (d) { courant.jour = d.jour; courant.debut = d.heure; } }
+      else if (cle === 'DTEND') { var f = icsDate(val); if (f) courant.fin = f.heure; }
+      else if (cle === 'SUMMARY') courant.titre = icsTexte(val);
+      else if (cle === 'LOCATION') courant.lieu = icsTexte(val);
+      else if (cle === 'UID') courant.uid = icsTexte(val);
+      else if (cle === 'STATUS') courant.statut = icsTexte(val);
+      return courant;
+    }, null);
+
+    return out
+      .sort(function (a, b) { return String(a.debut).localeCompare(String(b.debut)); })
+      .map(function (e, i) {
+        return {
+          id: 'edt:' + (e.uid || (iso + ':' + i)),
+          type: 'cours',
+          debut: e.debut || '',
+          fin: e.fin || '',
+          titre: sansListeDeNoms(e.titre) || 'Cours',
+          lieu: e.lieu || '',
+          classeNom: '',
+          statut: /CANCEL/i.test(e.statut || '') ? 'Annulé' : ''
+        };
+      });
+  }
+
+  function journee(iso) {
+    var cours = coursDuJour(iso);
+    if (!window.PSE_AGENDA || typeof window.PSE_AGENDA.journee !== 'function') return cours;
+    var j = safe(function () { return window.PSE_AGENDA.journee(iso); }) || {};
+    var lignes = (j.horaires || []).concat(j.journee || []);
+    var evenements = lignes
+      .filter(function (e) { return e && e.meConcerne !== false; })
+      .map(function (e) {
+        var etat = String(e.etatSeance || '');
+        return {
+          id: 'ev:' + e.id,
+          type: e.genre === 'cours' ? 'cours' : 'evenement',
+          debut: e.heure || '',
+          fin: e.heureFin || '',
+          titre: sansListeDeNoms(e.titre),
+          lieu: String(e.lieu || ''),
+          classeNom: nomClasses(e),
+          statut: e.annule ? 'Annulé' : (ETATS_LISIBLES[etat] || '')
+        };
+      });
+
+    // Les cours déjà présents dans l'agenda ne sont pas doublés.
+    var vus = {};
+    evenements.forEach(function (e) { vus[e.debut + '|' + e.titre] = 1; });
+    return evenements
+      .concat(cours.filter(function (c) { return !vus[c.debut + '|' + c.titre]; }))
+      .sort(function (a, b) { return String(a.debut).localeCompare(String(b.debut)); });
   }
 
   /* Séances de progression sur une fenêtre de jours autour d'aujourd'hui.
