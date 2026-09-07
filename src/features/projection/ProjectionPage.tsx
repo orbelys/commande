@@ -13,7 +13,7 @@ import styles from './ProjectionPage.module.css'
 /** Télécommande du cours projeté en classe. */
 export default function ProjectionPage() {
   const { envoyer, snapshot } = useBridge()
-  const { projection, disponible, etapeLabel, progressionPct } = useProjection()
+  const { projection, disponible, raisonIndisponible, messageCommande, etapeLabel, progressionPct } = useProjection()
   const [sommaireOuvert, setSommaireOuvert] = useState(false)
 
   if (!snapshot?.capacites.projection || !projection) {
@@ -48,6 +48,11 @@ export default function ProjectionPage() {
         <p className={styles.meta}>
           {projection.classeNom || 'Classe non précisée'} · {etapeLabel}
         </p>
+        {(raisonIndisponible || messageCommande) && (
+          <p role="status" className={styles.note}>
+            {raisonIndisponible || messageCommande}
+          </p>
+        )}
 
         <div className={styles.barre} role="img" aria-label={`${progressionPct} % du cours`}>
           <span className={styles.remplissage} style={{ width: `${progressionPct}%` }} />

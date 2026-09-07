@@ -23,7 +23,7 @@ export interface Poste {
  */
 export function usePoste(): Poste {
   const { status, snapshot } = useBridge()
-  const maintenant = useHorloge(30_000)
+  useHorloge(30_000)
 
   if (status === 'connecting') {
     return { etat: 'connexion', depuis: null, libelle: 'Connexion…', libelleCourt: '…' }
@@ -38,7 +38,9 @@ export function usePoste(): Poste {
   }
 
   const maj = snapshot ? new Date(snapshot.majA).getTime() : null
-  const ecart = maj ? maintenant.getTime() - maj : null
+  // Une réception déclenche un rendu entre deux ticks : comparer à l'heure
+  // réelle, jamais au tick mémorisé qui pourrait précéder l'instantané reçu.
+  const ecart = maj ? Date.now() - maj : null
 
   if (ecart === null || !Number.isFinite(ecart) || ecart > VEILLE_MS || ecart < -5_000) {
     return {
