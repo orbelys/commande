@@ -16,7 +16,7 @@ export interface Poste {
 }
 
 /**
- * État réel de l'ordinateur, distinct de l'état du réseau.
+ * Fraîcheur des données de l'ordinateur, distincte de l'état du réseau.
  *
  * « Connecté » disait seulement que le téléphone parlait à Firebase. Or
  * l'ordinateur peut être fermé dans un sac : on bloque les nouvelles commandes.
@@ -44,14 +44,14 @@ export function usePoste(): Poste {
     return {
       etat: 'en_veille',
       depuis: ecart,
-      libelle: 'Ordinateur en veille',
-      libelleCourt: 'En veille',
+      libelle: 'Liaison à vérifier',
+      libelleCourt: 'À vérifier',
     }
   }
   return {
     etat: 'actif',
     depuis: ecart,
-    libelle: 'Ordinateur actif',
-    libelleCourt: 'Actif',
+    libelle: 'Liaison active',
+    libelleCourt: 'Active',
   }
 }

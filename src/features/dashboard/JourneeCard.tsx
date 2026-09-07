@@ -6,6 +6,9 @@ import { useHorloge } from '../../hooks/useHorloge'
 import { classeDepuisTitre, couleurDe } from '../../lib/couleurs'
 import styles from './JourneeCard.module.css'
 import type { Ton } from '../../components/ui/Badge'
+import { lireHoraires, etatHoraire } from '../../lib/horaires'
+import { jourLocal } from '../../lib/jours'
+import { dateCourte } from '../../lib/format'
 
 const TON_STATUT: Record<string, Ton> = {
   'Réalisé': 'ok',
@@ -17,29 +20,22 @@ const TON_STATUT: Record<string, Ton> = {
   'Prévu': 'neutre',
 }
 
-function enMinutes(h: string): number | null {
-  const m = /^(\d{1,2})[:h.](\d{2})?/.exec(String(h || '').trim())
-  return m ? Number(m[1]) * 60 + Number(m[2] ?? 0) : null
-}
-
 /** La journée en frise : ce qui est passé, ce qui se joue, ce qui vient. */
 export default function JourneeCard() {
   const maintenant = useHorloge(60_000)
   const { snapshot } = useBridge()
   const journee = snapshot?.journee ?? []
-  const nowMin = maintenant.getHours() * 60 + maintenant.getMinutes()
+  const date = snapshot?.date || jourLocal(maintenant)
 
   return (
-    <Card titre="Aujourd’hui" padding={false}>
+    <Card titre={date === jourLocal(maintenant) ? 'Aujourd’hui' : `Journée du ${dateCourte(date)}`} padding={false}>
       {journee.length === 0 ? (
-        <EmptyState titre="Journée vide" detail="Aucun cours ni événement reçu pour aujourd’hui." />
+        <EmptyState titre="Journée vide" detail="Aucun cours ni événement reçu pour cette date." />
       ) : (
         <ol className={styles.frise}>
           {journee.map((e) => {
-            const debut = enMinutes(e.debut)
-            const fin = enMinutes(e.fin)
-            const passe = fin !== null && nowMin >= fin
-            const actif = debut !== null && nowMin >= debut && (fin === null || nowMin < fin)
+            const { debut, fin } = lireHoraires(e.debut, e.fin)
+            const { passe, actif } = etatHoraire(date, debut, fin, maintenant)
             const cle = e.classeNom || classeDepuisTitre(e.titre)
             const couleur = couleurDe(cle)
             return (
@@ -49,7 +45,7 @@ export default function JourneeCard() {
                   .filter(Boolean)
                   .join(' ')}
               >
-                <span className={styles.heure}>{e.debut || '—'}</span>
+                <span className={styles.heure}>{debut || '—'}</span>
                 <span className={styles.trait} aria-hidden="true">
                   <span
                     className={styles.point}
@@ -59,7 +55,7 @@ export default function JourneeCard() {
                 <span className={styles.corps} style={{ borderLeftColor: couleur.vif }}>
                   <span className={styles.titre}>{e.titre}</span>
                   <span className={styles.detail}>
-                    {[e.lieu, e.fin && `jusqu’à ${e.fin}`].filter(Boolean).join(' · ')}
+                    {[e.lieu, fin ? `jusqu’à ${fin}` : debut ? 'Fin non précisée' : ''].filter(Boolean).join(' · ')}
                   </span>
                 </span>
                 {e.statut && (

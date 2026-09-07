@@ -4,7 +4,7 @@ import styles from './StatusPill.module.css'
 
 /**
  * État du lien, en deux temps : le réseau du téléphone, puis l'ordinateur.
- * Un ordinateur en veille n'est pas une panne — les commandes attendront.
+ * Un instantané ancien ne prouve pas que l'ordinateur est en veille.
  */
 export default function StatusPill() {
   const poste = usePoste()

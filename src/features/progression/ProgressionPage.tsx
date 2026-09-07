@@ -11,6 +11,7 @@ import { useBridge } from '../../hooks/useBridge'
 import { useHorloge } from '../../hooks/useHorloge'
 import { quand, situerToutes, type SeanceSituee } from '../../lib/seances'
 import { dateCourte } from '../../lib/format'
+import { decalerJour, jourLocal } from '../../lib/jours'
 import type { Ton } from '../../components/ui/Badge'
 import type { StatutSeance } from '../../services/bridge/types'
 import styles from './ProgressionPage.module.css'
@@ -36,9 +37,20 @@ export default function ProgressionPage() {
   const maintenant = useHorloge(30_000)
   const { snapshot } = useBridge()
   const [ouverte, setOuverte] = useState<string | null>(null)
+  const [jourChoisi, setJourChoisi] = useState<string | null>(null)
+  const reference = snapshot?.date || jourLocal(maintenant)
+  // Le pont publie actuellement J-1 à J+6, même les jours sans séance.
+  const premierJour = decalerJour(reference, -1)
+  const dernierJour = decalerJour(reference, 6)
+  const date = jourChoisi && jourChoisi >= premierJour && jourChoisi <= dernierJour ? jourChoisi : reference
+  function choisirJour(jour: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(jour) || jour < premierJour || jour > dernierJour) return
+    setJourChoisi(jour)
+    setOuverte(null)
+  }
 
   const groupes = useMemo(() => {
-    const toutes = situerToutes(snapshot?.seances ?? [], maintenant)
+    const toutes = situerToutes((snapshot?.seances ?? []).filter(s => s.date === date), maintenant)
     const passee = (s: SeanceSituee) => s.moment === 'passee' || (s.moment === 'autre_jour' && s.minutesAvant < 0)
     const aReprendre = (s: SeanceSituee) =>
       passee(s) && ['À terminer', 'Reporté', 'Non réalisé'].includes(s.statut)
@@ -59,7 +71,7 @@ export default function ProgressionPage() {
         (s) => passee(s) && !s.aCloturer && !aReprendre(s),
       ),
     }
-  }, [snapshot, maintenant])
+  }, [snapshot, maintenant, date])
 
   if (!snapshot?.capacites.progression) {
     return (
@@ -85,10 +97,17 @@ export default function ProgressionPage() {
   return (
     <>
       <PageHeader titre="Progression" detail="Appuyez sur une séance pour la mettre à jour" />
+      <nav className={styles.navigationJour} aria-label="Jours de progression">
+        <Button className={styles.fleche} icone="←" aria-label="Jour précédent" title="Jour précédent" disabled={date <= premierJour} onClick={() => choisirJour(decalerJour(date, -1))} />
+        <input className={styles.date} type="date" aria-label="Date des séances" min={premierJour} max={dernierJour} value={date} onChange={e => choisirJour(e.target.value)} />
+        <Button className={styles.fleche} icone="→" aria-label="Jour suivant" title="Jour suivant" disabled={date >= dernierJour} onClick={() => choisirJour(decalerJour(date, 1))} />
+        <Button className={styles.aujourdhui} taille="sm" disabled={date === jourLocal(maintenant) || jourLocal(maintenant) < premierJour || jourLocal(maintenant) > dernierJour} onClick={() => choisirJour(jourLocal(maintenant))}>Aujourd’hui</Button>
+      </nav>
+      <p className={styles.periode}>Séances disponibles du {dateCourte(premierJour)} au {dateCourte(dernierJour)}</p>
 
       {total === 0 && (
         <Card>
-          <EmptyState titre="Aucune séance" detail="Rien n’est publié pour cette période." />
+          <EmptyState titre="Aucune séance ce jour" detail={`Aucune séance reçue pour le ${dateCourte(date)}.`} />
         </Card>
       )}
 

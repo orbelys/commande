@@ -1,3 +1,32 @@
+.navigationJour {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.fleche { width: 44px; height: 44px; padding: 0; }
+.date {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+.aujourdhui { grid-column: 2; justify-self: center; }
+.periode {
+  text-align: center;
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  margin: var(--sp-2) 0 var(--sp-4);
+}
+
 .ligne {
   display: flex;
   align-items: center;

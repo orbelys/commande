@@ -892,7 +892,14 @@
 
   async function publier() {
     if (!uid || !estChef()) return;
-    await fs.setDoc(fs.doc(db, COL_POSTES, uid), construireInstantane());
+    var gen = generation;
+    try {
+      await fs.setDoc(fs.doc(db, COL_POSTES, uid), construireInstantane());
+      if (gen === generation && estChef() && !erreurEcoute) pastille('connecte', '');
+    } catch (e) {
+      if (gen === generation && estChef()) pastille('erreur', String(e.message || e));
+      throw e;
+    }
   }
 
   function publierBientot() {
@@ -902,6 +909,7 @@
 
   /* Une fois le compte connecté : publier, écouter les commandes, republier. */
   var enMarche = false;
+  var erreurEcoute = false;
   async function activer(utilisateur) {
     if (!estChef()) return;
     if (enMarche && uid === utilisateur.uid) return;
@@ -909,11 +917,8 @@
     uid = utilisateur.uid;
     var gen = generation;
     nomPoste = nomPosteAuto();
-    pastille('connecte', utilisateur.email || '');
+    erreurEcoute = false;
     enMarche = true;
-
-    await publier();
-    if (gen !== generation || !estChef()) return;
 
     arreters.push(fs.onSnapshot(
       fs.query(fs.collection(db, COL_COMMANDES, uid, SOUS_FILE), fs.where('statut', '==', 'envoyee')),
@@ -929,16 +934,17 @@
           }).catch(function (e) { pastille('erreur', String(e.message || e)); })
             .finally(function () { enAttente.delete(d.id); });
         });
-      }, function (e) { pastille('erreur', String(e.message || e)); }
+      }, function (e) {
+        if (gen !== generation || !estChef()) return;
+        erreurEcoute = true;
+        pastille('erreur', String(e.message || e));
+      }
     ));
 
     window.addEventListener('pse-store-sync', publierBientot);
     arreters.push(function () { window.removeEventListener('pse-store-sync', publierBientot); });
-    /* Battement de cœur : republie l'instantané toutes les 25 s tant que l'app
-     * tourne. Ainsi le champ `majA` reste frais et le téléphone voit « ordinateur
-     * éveillé » (au lieu de « en veille » entre deux actions, ce qui empêchait de
-     * clôturer). Si le Mac dort vraiment, ce timer est suspendu par macOS : le
-     * téléphone repasse alors en « en veille », ce qui est correct. */
+    /* Installer les reprises avant le premier envoi, qui peut échouer ou rester
+     * en attente hors ligne. Une erreur initiale ne doit pas couper le battement. */
     var battement = setInterval(function () { publier().catch(function () {}); }, 25000);
     arreters.push(function () { clearInterval(battement); });
     /* Retour au premier plan / réveil : republication immédiate, sans attendre. */
@@ -949,6 +955,7 @@
     };
     document.addEventListener('visibilitychange', visible);
     arreters.push(function () { window.removeEventListener('focus', republierMaintenant); document.removeEventListener('visibilitychange', visible); });
+    await publier();
   }
 
   /**
