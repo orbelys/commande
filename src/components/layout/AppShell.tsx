@@ -8,7 +8,9 @@ import styles from './AppShell.module.css'
 
 /** Coque commune : barre haute, contenu de la page, navigation basse. */
 export default function AppShell() {
-  const { authRequise, session, status } = useBridge()
+  const { authRequise, session, status, commandes } = useBridge()
+  const derniere = commandes[0]
+  const alerte = derniere && ['echouee', 'sans_confirmation'].includes(derniere.statut) && Date.now() - Date.parse(derniere.creeeA) < 600_000
   const { pathname } = useLocation()
 
   /* Le navigateur restitue la position de défilement d'une page à l'autre :
@@ -36,6 +38,9 @@ export default function AppShell() {
       <TopBar />
       <main className={styles.contenu}>
         <div className={styles.largeur}>
+          {alerte && <p role="alert" style={{ borderLeft: '3px solid #b42318', padding: '10px 12px', margin: '0 0 12px', overflowWrap: 'anywhere' }}>
+            <strong>{derniere.libelle} : </strong>{derniere.erreur || 'Action non confirmée. Vérifie l’ordinateur.'}
+          </p>}
           <Outlet />
         </div>
       </main>

@@ -9,7 +9,7 @@
  * journée d'agenda, actions de réunion.
  */
 
-export const VERSION_CONTRAT = 4
+export const VERSION_CONTRAT = 5
 
 /** État du lien avec Electron. */
 export type ConnectionStatus = 'offline' | 'connecting' | 'online'
@@ -55,6 +55,7 @@ export interface DocumentProjete {
   idx: number
   label: string
   visible: boolean
+  autorise?: boolean
 }
 
 /** Une étape du sommaire de projection (P.gotoStep). */
@@ -72,8 +73,21 @@ export interface Minuteur {
   restant: number
 }
 
+/** État de la roue de tirage (projection). Publié par le pont Electron. */
+export interface RoueEtat {
+  /** Au moins un élève est dans la roue (classe choisie / prénoms saisis). */
+  configuree: boolean
+  classe: string
+  dansLaRoue: number
+  total: number
+  dejaTires: number
+  /** Dernier élève tiré (déjà affiché à l'écran ; rien à recalculer ici). */
+  dernier: string
+}
+
 /** État de la projection en cours dans Electron. */
 export interface Projection {
+  sessionId?: string
   /** La fenêtre élèves est ouverte. */
   fenetreOuverte: boolean
   coursTitre: string
@@ -88,6 +102,8 @@ export interface Projection {
   documents: DocumentProjete[]
   /** Absent si le poste tourne encore sur une version antérieure du pont. */
   minuteur?: Minuteur
+  /** Absent si le poste tourne encore sur une version antérieure du pont. */
+  roue?: RoueEtat
 }
 
 /** Statuts d'une séance, tels qu'ils existent dans la progression. */
@@ -101,12 +117,34 @@ export type StatutSeance =
   | 'Annulé'
 
 /**
- * Statuts que le téléphone peut poser directement.
- * Les trois autres (« À terminer », « Reporté », « Non réalisé ») ouvrent la
- * fenêtre de reprise sur l'ordinateur : les envoyer d'ici ferait surgir une
- * boîte de dialogue en pleine classe.
+ * Les 7 statuts, dans l'ordre d'affichage. Le téléphone peut désormais tous
+ * les poser (le pont Electron écrit « À terminer / Reporté / Non réalisé » en
+ * mode « statut seul », sans ouvrir la fenêtre de reprise). Si l'instantané
+ * fournit `statuts`, on l'utilise à la place (source unique de vérité).
  */
-export const STATUTS_TELEPHONE: StatutSeance[] = ['Prévu', 'En cours', 'Réalisé', 'Annulé']
+export const STATUTS_TELEPHONE: StatutSeance[] = [
+  'Prévu',
+  'En cours',
+  'À terminer',
+  'Réalisé',
+  'Reporté',
+  'Annulé',
+  'Non réalisé',
+]
+
+/** Statuts « de report » : la séance se poursuit plus tard ; un mémo de reprise est attendu. */
+export const STATUTS_REPRISE: StatutSeance[] = ['En cours', 'À terminer', 'Reporté', 'Non réalisé']
+
+/** Aide courte affichée sous le sélecteur, selon le statut choisi. */
+export const AIDE_STATUT: Record<StatutSeance, string> = {
+  'Prévu': 'Pas encore faite.',
+  'En cours': 'Commencée, se poursuit plus tard (ex. révisions à continuer). Pense au mémo de reprise.',
+  'À terminer': 'Presque finie, à reprendre. Le rattrapage se place ensuite sur l’ordinateur.',
+  'Réalisé': 'Terminée. Clôture la séance.',
+  'Reporté': 'Déplacée à une autre date (placement sur l’ordinateur).',
+  'Annulé': 'N’a pas eu lieu, sans rattrapage.',
+  'Non réalisé': 'Aurait dû avoir lieu, à rattraper.',
+}
 
 /** État de remise du support de cours pour ce créneau. */
 export type Remise = '' | 'a_faire' | 'fait' | 'sans_objet'
@@ -131,6 +169,16 @@ export interface Seance {
   module: string
   moduleLabel: string
   seance: string
+  /** Avancement du module « posées / volume », ex. « 1/3 » (« 1/1 » si module d'une séance). */
+  sequenceLabel?: string
+  /** Détail de l'avancement (facultatif). */
+  sequence?: {
+    current: number
+    total: number
+    placed: number
+    done: number
+    label: string
+  } | null
   phase: string
   objectif: string
   statut: StatutSeance
@@ -171,6 +219,7 @@ export interface ActionItem {
  */
 export interface Snapshot {
   version: number
+  deviceId?: string
   majA: string // ISO
   poste: string
   date: string // jour ISO de référence
@@ -180,6 +229,9 @@ export interface Snapshot {
   seances: Seance[]
   classes: Classe[]
   actions: ActionItem[]
+  /** Les statuts gérés par la progression, source unique de vérité pour le
+   * sélecteur. Absent si le poste tourne encore sur une version antérieure. */
+  statuts?: StatutSeance[]
 }
 
 /** Commandes que le téléphone peut envoyer. */
@@ -196,6 +248,9 @@ export type CommandType =
   | 'projection.minuteur.pause'
   | 'projection.minuteur.reprendre'
   | 'projection.minuteur.arreter'
+  | 'projection.roue.tourner'
+  | 'projection.roue.reinitialiser'
+  | 'projection.roue.cacher'
   // — progression (créneau d'une classe)
   | 'seance.statut'
   | 'seance.remise'
@@ -209,7 +264,7 @@ export type CommandType =
 
 export type CommandPayload = Record<string, string | number | boolean | null>
 
-export type CommandStatus = 'en_attente' | 'envoyee' | 'appliquee' | 'echouee'
+export type CommandStatus = 'en_attente' | 'envoyee' | 'en_cours' | 'appliquee' | 'echouee' | 'sans_confirmation'
 
 /**
  * Une commande porte un identifiant unique : Electron mémorise les
@@ -223,12 +278,18 @@ export interface Command {
   creeeA: string // ISO
   statut: CommandStatus
   erreur?: string
+  protocol?: number
+  deviceId?: string
+  projectionSessionId?: string
+  expiresAt?: string
+  expected?: string | number | boolean
 }
 
 export type TransportEvent =
   | { type: 'status'; status: ConnectionStatus }
   | { type: 'snapshot'; snapshot: Snapshot }
   | { type: 'command'; id: string; statut: CommandStatus; erreur?: string }
+  | { type: 'history'; commandes: Command[] }
   | { type: 'erreur'; message: string }
 
 /** Compte connecté (Firebase) ; null en mode simulation. */

@@ -11,6 +11,14 @@
 
 .texte { min-width: 0; }
 
+.droite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
 .titre {
   font-weight: 650;
   letter-spacing: -0.01em;

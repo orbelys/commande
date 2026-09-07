@@ -6,6 +6,18 @@ import { useHorloge } from '../../hooks/useHorloge'
 import { situerToutes } from '../../lib/seances'
 import { dateCourte } from '../../lib/format'
 import styles from './ACloturerCard.module.css'
+import type { Ton } from '../../components/ui/Badge'
+
+/** Couleur du badge selon le statut réel de la séance (même code que la frise). */
+const TON_STATUT: Record<string, Ton> = {
+  'Réalisé': 'ok',
+  'En cours': 'live',
+  'À terminer': 'attention',
+  'Reporté': 'attention',
+  'Non réalisé': 'danger',
+  'Annulé': 'neutre',
+  'Prévu': 'neutre',
+}
 
 /**
  * Séances dont l'heure est passée sans qu'aucune décision n'ait été prise.
@@ -35,18 +47,27 @@ export default function ACloturerCard() {
               {s.debut} — {s.classeNom}
             </p>
             <p className={styles.detail}>
-              {[s.moduleLabel || s.module, s.seance].filter(Boolean).join(' · ') || 'Séance'}
+              {[s.moduleLabel || s.module, s.seance, s.sequenceLabel].filter(Boolean).join(' · ') ||
+                'Séance'}
             </p>
           </div>
-          <Button
-            taille="sm"
-            variante="succes"
-            icone="✓"
-            disabled={!dispo}
-            onClick={() => envoyer('seance.statut', { seanceId: s.id, statut: 'Réalisé' })}
-          >
-            Réalisé
-          </Button>
+          <div className={styles.droite}>
+            {/* Statut RÉEL de la séance (ex. « En cours »). Sans lui, le bouton
+                vert plus bas laissait croire que la séance était déjà réalisée. */}
+            {s.statut && (
+              <Badge ton={TON_STATUT[s.statut] ?? 'neutre'}>{s.statut}</Badge>
+            )}
+            {/* Action : clôturer en « Réalisé » d'un seul geste. */}
+            <Button
+              taille="sm"
+              variante="succes"
+              icone="✓"
+              disabled={!dispo}
+              onClick={() => envoyer('seance.statut', { seanceId: s.id, statut: 'Réalisé' })}
+            >
+              Marquer réalisé
+            </Button>
+          </div>
         </div>
       ))}
       {enAttente.length > 4 && (

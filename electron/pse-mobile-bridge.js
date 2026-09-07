@@ -12,10 +12,10 @@
  * CONTRAT : identique à src/services/bridge/types.ts du site mobile.
  * Toute modification doit être faite des deux côtés.
  *
- * CONFIDENTIALITÉ : cet instantané ne contient AUCUN nom d'élève, aucune
- * donnée de santé, aucun aménagement, aucune adresse. Uniquement des
- * intitulés de cours, de classes et de créneaux. Ne pas ajouter de champ
- * nominatif sans revoir cette règle.
+ * CONFIDENTIALITÉ : aucune liste nominative ni identité tirée par la roue.
+ * Les codes élèves sont pseudonymes. Titres, mémos, notes et actions restent
+ * des textes libres synchronisés : ne pas y saisir de données sensibles.
+ * Ne pas ajouter de champ nominatif sans revoir ce contrat.
  *
  * SÉCURITÉ : aucun mot de passe n'est écrit ici ni stocké en clair. Il est
  * saisi une seule fois dans le panneau de connexion ; ensuite, c'est la
@@ -28,7 +28,7 @@
 (function () {
   'use strict';
 
-  var VERSION_CONTRAT = 4;
+  var VERSION_CONTRAT = 5;
   var COL_POSTES = 'postes';
   var COL_COMMANDES = 'commandes';
   var SOUS_FILE = 'file';
@@ -53,6 +53,28 @@
   var uid = null;
   var nomPoste = 'Suite PSE';  /* précisé au démarrage */
   var timerPub = null;
+  var arreters = [], authArreter = null, generation = 0;
+  var fileTravail = Promise.resolve(), enAttente = new Set();
+  var commandeActive = null;
+  function deviceId() {
+    var id = window.StorageService.get('pse-mobile-device-v1');
+    if (!id) {
+      id = crypto.randomUUID();
+      window.StorageService.set('pse-mobile-device-v1', id);
+    }
+    return id;
+  }
+  function arreterEcoutes() {
+    generation++;
+    arreters.splice(0).forEach(function (f) { f(); });
+    clearTimeout(timerPub);
+    enMarche = false;
+    uid = null;
+  }
+  function estChef() {
+    var bail = lireJson(CLE_CHEF);
+    return suisChef && bail && bail.id === monId && Date.now() - bail.at < BAIL_MS;
+  }
 
   /* ══ 0. Une seule fenêtre aux commandes ═══════════════════
    *
@@ -94,7 +116,12 @@
     }
 
     if (suisChef && !etaitChef) demarrerAuto();
-    if (!suisChef && etaitChef) { enMarche = false; pastille('relais', ''); }
+    if (!suisChef && etaitChef) {
+      arreterEcoutes();
+      if (authArreter) authArreter();
+      authArreter = null;
+      pastille('relais', '');
+    }
     if (!suisChef) pastille('relais', 'pilotée par ' + ((bail && bail.page) || 'une autre fenêtre'));
     return suisChef;
   }
@@ -122,9 +149,28 @@
   var etatProjete = null;
   var etatRecuA = 0;
   var cibleProjection = null;
+  var attentesProjection = new Map();
+  function origineLocale(e) {
+    return !!e.source && (e.origin === location.origin ||
+      (location.protocol === 'file:' && e.origin === 'null'));
+  }
 
   window.addEventListener('message', function (e) {
     var m = e.data || {};
+    if (!origineLocale(e)) return;
+    if (m.type === 'mobile-ack') {
+      if (e.source !== cibleProjection) return;
+      var attente = attentesProjection.get(m.id);
+      if (attente) attente(m);
+      else {
+        var r = lireJson(CLE_RELAIS);
+        if (r && r.id === m.id && r.pour === monId && !r.ack) {
+          r.ack = { id: m.id, ok: m.ok === true, erreur: String(m.erreur || '') };
+          ecrireJson(CLE_RELAIS, r);
+        }
+      }
+      return;
+    }
     if (m.type !== 'mobile-etat') return;
     etatProjete = m.etat || null;
     etatRecuA = Date.now();
@@ -149,24 +195,40 @@
 
   function envoyerProjection(message) {
     if (!projectionVivante()) throw new Error('Aucune projection en cours');
-    // Lien direct si cette fenêtre tient la projection…
-    if (cibleProjection && etatProjete && (Date.now() - etatRecuA) < PERIME_MS) {
-      cibleProjection.postMessage(Object.assign({ type: 'mobile-cmd' }, message), '*');
-      return;
-    }
-    // …sinon on passe la consigne à la fenêtre qui la tient, via le store.
-    ecrireJson(CLE_RELAIS, { cmd: message, at: Date.now(), pour: (lireJson(CLE_PROJECTION) || {}).par || '' });
-    safe(function () { window.StorageService.flush && window.StorageService.flush(); });
+    var id = commandeActive.id;
+    var msg = Object.assign({ type: 'mobile-cmd', id: id,
+      sessionId: commandeActive.projectionSessionId, expiresAt: commandeActive.expiresAt,
+      expected: commandeActive.expected }, message);
+    return new Promise(function (resolve, reject) {
+      var fini = false;
+      var timer = setTimeout(function () { terminer({ ok: false, erreur: 'Projection sans confirmation. Vérifie l’écran avant de réessayer.' }); }, 8000);
+      function terminer(r) {
+        if (fini) return;
+        fini = true; clearTimeout(timer); attentesProjection.delete(id);
+        if (r.ok) resolve(); else reject(new Error(r.erreur));
+      }
+      attentesProjection.set(id, terminer);
+      try {
+        if (cibleProjection && etatProjete && Date.now() - etatRecuA < PERIME_MS)
+          cibleProjection.postMessage(msg, '*');
+        else {
+          // Une seule commande est en vol : le prochain relais attend l'accusé.
+          ecrireJson(CLE_RELAIS, { id: id, cmd: msg, at: Date.now(), pour: (lireJson(CLE_PROJECTION) || {}).par || '' });
+          if (window.StorageService.flush) window.StorageService.flush();
+        }
+      } catch (e) { terminer({ ok: false, erreur: String(e.message || e) }); }
+    });
   }
 
   /* Côté fenêtre qui tient la projection : exécuter les consignes relayées. */
-  var dernierRelais = 0;
+  var dernierRelais = '';
   function verifierRelais() {
-    if (!cibleProjection) return;
     var r = lireJson(CLE_RELAIS);
-    if (!r || !r.at || r.at <= dernierRelais) return;
-    if (Date.now() - r.at > 10000) { dernierRelais = r.at; return; }
-    dernierRelais = r.at;
+    if (!r || !r.id) return;
+    if (r.ack && attentesProjection.has(r.id)) { attentesProjection.get(r.id)(r.ack); return; }
+    if (!cibleProjection || r.pour !== monId || r.id === dernierRelais || r.ack) return;
+    if (Date.now() - r.at > 10000) return;
+    dernierRelais = r.id;
     safe(function () {
       cibleProjection.postMessage(Object.assign({ type: 'mobile-cmd' }, r.cmd || {}), '*');
     });
@@ -196,6 +258,7 @@
 
   function normaliserProjection(e) {
     return {
+      sessionId: String(e.sessionId || ''),
       fenetreOuverte: e.fenetreOuverte !== false,
       coursTitre: String(e.coursTitre || 'Cours projeté'),
       classeNom: String(e.classeNom || ''),
@@ -222,7 +285,15 @@
           label: String(d.label || ('Document ' + (i + 1))),
           visible: d.visible !== false
         };
-      })
+      }),
+      roue: e.roue ? {
+        configuree: !!e.roue.configuree,
+        classe: String(e.roue.classe || ''),
+        dansLaRoue: Number(e.roue.dansLaRoue) || 0,
+        total: Number(e.roue.total) || 0,
+        dejaTires: Number(e.roue.dejaTires) || 0,
+        dernier: e.roue.dernier ? 'Élève tiré' : ''
+      } : { configuree: false, classe: '', dansLaRoue: 0, total: 0, dejaTires: 0, dernier: '' }
     };
   }
 
@@ -397,6 +468,15 @@
           module: s.module || '',
           moduleLabel: x.moduleLabel || '',
           seance: s.seance || '',
+          // « 1/3 » : avancement du module tel qu'affiché dans la progression.
+          sequence: x.sequence ? {
+            current: Number(x.sequence.current) || 0,
+            total: Number(x.sequence.total) || 0,
+            placed: Number(x.sequence.placed) || 0,
+            done: Number(x.sequence.done) || 0,
+            label: String(x.sequence.label || '')
+          } : null,
+          sequenceLabel: (x.sequence && x.sequence.label) ? String(x.sequence.label) : '',
           phase: s.phase || '',
           objectif: s.objectif || '',
           statut: s.statut || 'Prévu',
@@ -440,6 +520,10 @@
   function rattrapages() { return lireJson(CLE_RATTRAPAGES) || {}; }
 
   function poserAbsents(seanceId, codes) {
+    if (!lireCreneau(creneau({ seanceId: seanceId }))) throw new Error('Séance introuvable');
+    var classe = classes().find(function (c) { return c.id === String(seanceId).split('|')[0]; });
+    if (!classe || codes.some(function (c) { return classe.codes.indexOf(c) < 0; })) throw new Error('Code élève inconnu dans cette classe');
+    codes = Array.from(new Set(codes));
     var toutes = absences();
     var avant = toutes[seanceId] || [];
     toutes[seanceId] = codes;
@@ -449,7 +533,7 @@
     var classeId = String(seanceId).split('|')[0];
     var dettes = rattrapages();
     var liste = dettes[classeId] || [];
-    codes.forEach(function (c) { if (liste.indexOf(c) < 0) liste.push(c); });
+    codes.forEach(function (c) { if (avant.indexOf(c) < 0 && liste.indexOf(c) < 0) liste.push(c); });
     // Un code décoché ici, et absent nulle part ailleurs, sort de la dette.
     avant.filter(function (c) { return codes.indexOf(c) < 0; }).forEach(function (c) {
       var ailleurs = Object.keys(toutes).some(function (id) {
@@ -463,6 +547,8 @@
   }
 
   function marquerRattrape(classeId, code) {
+    var classe = classes().find(function (c) { return c.id === classeId; });
+    if (!classe || classe.codes.indexOf(code) < 0) throw new Error('Code élève inconnu dans cette classe');
     var dettes = rattrapages();
     dettes[classeId] = (dettes[classeId] || []).filter(function (x) { return x !== code; });
     ecrireJson(CLE_RATTRAPAGES, dettes);
@@ -536,10 +622,12 @@
     var iso = dateIso || isoAujourdhui();
     return {
       version: VERSION_CONTRAT,
+      deviceId: deviceId(),
       majA: new Date().toISOString(),
       poste: nomPoste,
       date: iso,
       capacites: capacites(),
+      statuts: STATUTS_PROGRESSION.slice(),
       projection: etatProjection(),
       journee: journee(iso),
       seances: seances(iso, 1, 6),
@@ -559,40 +647,91 @@
   function ecrireCreneau(payload, champ, valeur) {
     if (!capacites().progression) throw new Error('Progression non disponible sur ce poste');
     var c = creneau(payload);
+    if (!lireCreneau(c)) throw new Error('Séance introuvable');
     window.PSE_PROG.setSlot(c.cls, c.wkey, c.slotId, champ, valeur, false);
+    var apres = lireCreneau(c);
+    if (!apres || String(apres[champ] || '') !== String(valeur)) throw new Error('Modification non enregistrée sur ce créneau');
   }
 
-  /* PSE_PROG.setSlot(…,'statut',…) route ces trois statuts vers la fenêtre de
-   * reprise (progression-core.js : requestSlotStatus). Depuis le téléphone,
-   * cela ferait surgir une boîte de dialogue sur l'ordinateur de la classe :
-   * on refuse, proprement. */
+  /* Relit le statut réellement enregistré pour un créneau (date = lundi wkey +
+   * (jour-1)). Sert à confirmer au téléphone que la clôture a bien pris. */
+  function lireCreneau(c) {
+    var jour = parseInt(String(c.slotId).split('|')[0], 10) || 1;
+    var d = decalerIso(c.wkey, jour - 1);
+    var lot = safe(function () { return window.PSE_PROG.slotsForDate(d); }) || [];
+    for (var i = 0; i < lot.length; i++) {
+      var x = lot[i], s = x.slot || {};
+      if (String(x.cls) === String(c.cls) &&
+          [s.day, s.start, s.end || ''].join('|') === c.slotId) {
+        return s;
+      }
+    }
+    return null;
+  }
+  function lireStatutCreneau(c) {
+    var s = lireCreneau(c);
+    return s ? String(s.statut || '') : null;
+  }
+
+  /* Les 7 statuts gérés par la progression (progression-core.js : STATUTS).
+   * Le téléphone doit tous pouvoir les poser, pour que ça se synchronise. */
+  var STATUTS_PROGRESSION = ['Prévu', 'En cours', 'À terminer', 'Réalisé', 'Reporté', 'Annulé', 'Non réalisé'];
+  /* Ces trois statuts, via setSlot(…,'statut',…), ouvriraient la fenêtre de
+   * reprise sur l'ordinateur de la classe. Depuis le téléphone on écrit
+   * directement le statut (sans déplacement de séance) via setSlotStatusOnly :
+   * le report/décalage éventuel se règle ensuite sur l'ordinateur. */
   var STATUTS_A_DIALOGUE = ['À terminer', 'Reporté', 'Non réalisé'];
 
   var HANDLERS = {
-    'projection.ouvrir': function () { envoyerProjection({ cmd: 'open' }); },
-    'projection.etape.suivante': function () { envoyerProjection({ cmd: 'next' }); },
-    'projection.etape.precedente': function () { envoyerProjection({ cmd: 'prev' }); },
-    'projection.etape.aller': function (p) { envoyerProjection({ cmd: 'goto', step: Number(p.etape) }); },
-    'projection.corrige.basculer': function () { envoyerProjection({ cmd: 'reveal' }); },
-    'projection.focus.basculer': function () { envoyerProjection({ cmd: 'focus' }); },
+    'projection.ouvrir': function () { return envoyerProjection({ cmd: 'open' }); },
+    'projection.etape.suivante': function () { return envoyerProjection({ cmd: 'next' }); },
+    'projection.etape.precedente': function () { return envoyerProjection({ cmd: 'prev' }); },
+    'projection.etape.aller': function (p) { return envoyerProjection({ cmd: 'goto', step: Number(p.etape) }); },
+    'projection.corrige.basculer': function (p) { return envoyerProjection({ cmd: 'reveal', visible: p.visible }); },
+    'projection.focus.basculer': function (p) { return envoyerProjection({ cmd: 'focus', visible: p.visible }); },
     'projection.document.afficher': function (p) {
-      envoyerProjection({ cmd: 'doc', idx: Number(p.idx), show: p.visible !== false });
+      return envoyerProjection({ cmd: 'doc', idx: Number(p.idx), show: p.visible !== false });
     },
     'projection.minuteur.demarrer': function (p) {
-      envoyerProjection({ cmd: 'timer', secs: Number(p.secondes) || 0 });
+      return envoyerProjection({ cmd: 'timer', secs: Number(p.secondes) || 0 });
     },
-    'projection.minuteur.pause': function () { envoyerProjection({ cmd: 'timer-pause' }); },
-    'projection.minuteur.reprendre': function () { envoyerProjection({ cmd: 'timer-reprendre' }); },
-    'projection.minuteur.arreter': function () { envoyerProjection({ cmd: 'timer-stop' }); },
+    'projection.minuteur.pause': function () { return envoyerProjection({ cmd: 'timer-pause' }); },
+    'projection.minuteur.reprendre': function () { return envoyerProjection({ cmd: 'timer-reprendre' }); },
+    'projection.minuteur.arreter': function () { return envoyerProjection({ cmd: 'timer-stop' }); },
+    'projection.roue.tourner': function () { return envoyerProjection({ cmd: 'roue-spin' }); },
+    'projection.roue.reinitialiser': function () { return envoyerProjection({ cmd: 'roue-reset' }); },
+    'projection.roue.cacher': function () { return envoyerProjection({ cmd: 'roue-hide' }); },
 
     'seance.statut': function (p) {
       var statut = String(p.statut);
-      if (STATUTS_A_DIALOGUE.indexOf(statut) >= 0) {
-        throw new Error('« ' + statut +' » se choisit sur l\'ordinateur (fenêtre de reprise)');
+      if (STATUTS_PROGRESSION.indexOf(statut) < 0) {
+        throw new Error('Statut inconnu : « ' + statut + ' »');
       }
-      ecrireCreneau(p, 'statut', statut);
+      var c = creneau(p);
+      if (STATUTS_A_DIALOGUE.indexOf(statut) >= 0) {
+        // Écriture directe du statut, sans ouvrir la fenêtre de reprise.
+        if (!capacites().progression) throw new Error('Progression non disponible sur ce poste');
+        if (!window.PSE_PROG || typeof window.PSE_PROG.setSlotStatusOnly !== 'function') {
+          throw new Error('« ' + statut + ' » se choisit sur l\'ordinateur (fenêtre de reprise)');
+        }
+        window.PSE_PROG.setSlotStatusOnly(c.cls, c.wkey, c.slotId, statut);
+      } else {
+        ecrireCreneau(p, 'statut', statut);
+      }
+      // Confirme que le statut a bien été posé, sinon renvoie une vraie erreur
+      // au téléphone (au lieu d'un faux « appliqué » qui ne change rien).
+      var apres = lireStatutCreneau(c);
+      if (apres === null) {
+        throw new Error('Séance introuvable sur ce créneau — clôture impossible.');
+      }
+      if (apres !== statut) {
+        throw new Error('Séance pas encore renseignée sur l\'ordinateur (choisis d\'abord le module / la séance). Statut inchangé.');
+      }
     },
-    'seance.remise': function (p) { ecrireCreneau(p, 'remise', String(p.remise)); },
+    'seance.remise': function (p) {
+      if (['', 'a_faire', 'partiel', 'remis'].indexOf(p.remise) < 0) throw new Error('Remise inconnue');
+      ecrireCreneau(p, 'remise', p.remise);
+    },
     'seance.memo': function (p) { ecrireCreneau(p, 'memo', String(p.memo || '')); },
     'seance.absents': function (p) {
       var codes = String(p.codes || '').split(',').map(function (c) { return c.trim(); })
@@ -627,14 +766,17 @@
     }
   };
 
-  function appliquer(commande) {
-    var h = HANDLERS[commande.type];
+  async function appliquer(commande) {
+    var h = Object.prototype.hasOwnProperty.call(HANDLERS, commande.type) && HANDLERS[commande.type];
     if (!h) return { ok: false, erreur: 'Commande inconnue : ' + commande.type };
     try {
-      h(commande.payload || {});
+      commandeActive = commande;
+      await h(commande.payload || {});
       return { ok: true };
     } catch (e) {
       return { ok: false, erreur: String((e && e.message) || e) };
+    } finally {
+      commandeActive = null;
     }
   }
 
@@ -688,19 +830,68 @@
     return sdk;
   }
 
-  async function traiterCommande(ref, commande) {
-    var vues = dejaAppliquees();
-    var res = vues.indexOf(commande.id) >= 0 ? { ok: true } : appliquer(commande);
-    if (res.ok) memoriser(commande.id);
-    await fs.updateDoc(ref, {
-      statut: res.ok ? 'appliquee' : 'echouee',
-      erreur: res.ok ? null : res.erreur,
-      appliqueeA: new Date().toISOString()
+  function verifierCommande(c) {
+    if (!c || c.protocol !== VERSION_CONTRAT) throw new Error('Version de télécommande incompatible : actualise le téléphone');
+    if (c.owner !== uid || c.deviceId !== deviceId()) throw new Error('Commande destinée à un autre poste ou compte');
+    if (!Object.prototype.hasOwnProperty.call(HANDLERS, c.type)) throw new Error('Commande inconnue');
+    var creation = Date.parse(c.creeeA), expiration = Date.parse(c.expiresAt);
+    var projection = c.type.indexOf('projection.') === 0;
+    var duree = projection ? 20000 : 300000;
+    if (!Number.isFinite(creation) || !Number.isFinite(expiration) || creation > Date.now() + 5000 ||
+        expiration <= Date.now() || expiration - creation > duree || expiration <= creation)
+      throw new Error('Commande périmée : vérifie l’état actuel puis réessaie');
+    if (projection) {
+      var e = projectionConnue();
+      if (!e || !c.projectionSessionId || e.sessionId !== c.projectionSessionId) throw new Error('Le cours projeté a changé');
+      if (c.expected !== e.etape) throw new Error('L’étape a changé : actualise avant de réessayer');
+    }
+    if (c.type.indexOf('seance.') === 0) {
+      var p = c.payload || {}, champ = c.type.split('.')[1], slot = lireCreneau(creneau(p));
+      if (!slot) throw new Error('Séance introuvable');
+      var actuel = champ === 'absents' ? (absences()[p.seanceId] || []).slice().sort().join(',') : String(slot[champ] || '');
+      if (champ === 'statut' && !actuel) actuel = 'Prévu';
+      if (c.expected !== actuel) throw new Error('Séance modifiée depuis un autre écran : actualise avant de réessayer');
+    }
+  }
+
+  async function traiterCommande(ref) {
+    if (!estChef() || !uid) return;
+    var gen = generation;
+    var commande = await fs.runTransaction(db, async function (tx) {
+      var doc = await tx.get(ref);
+      if (!doc.exists()) return null;
+      var c = doc.data();
+      if (c.statut !== 'envoyee' || !estChef() || gen !== generation) return null;
+      if (c.deviceId && c.deviceId !== deviceId()) return null;
+      try {
+        if (c.id !== ref.id) throw new Error('Identifiant de commande incohérent');
+        verifierCommande(c);
+      } catch (e) {
+        tx.update(ref, { statut: 'echouee', erreur: String(e.message || e) });
+        return null;
+      }
+      tx.update(ref, { statut: 'en_cours', executant: monId, priseA: new Date().toISOString() });
+      return c;
     });
+    if (!commande) return;
+    var res;
+    if (!estChef() || gen !== generation) res = { ok: false, erreur: 'Connexion interrompue avant exécution' };
+    else {
+      try {
+        verifierCommande(commande);
+        res = dejaAppliquees().indexOf(commande.id) >= 0 ? { ok: true } : await appliquer(commande);
+        if (res.ok) {
+          memoriser(commande.id);
+          if (window.StorageService.flush) await window.StorageService.flush();
+        }
+      } catch (e) { res = { ok: false, erreur: String(e.message || e) }; }
+    }
+    await fs.updateDoc(ref, { statut: res.ok ? 'appliquee' : 'echouee',
+      erreur: res.ok ? null : res.erreur, appliqueeA: new Date().toISOString() });
   }
 
   async function publier() {
-    if (!uid) return;
+    if (!uid || !estChef()) return;
     await fs.setDoc(fs.doc(db, COL_POSTES, uid), construireInstantane());
   }
 
@@ -712,28 +903,52 @@
   /* Une fois le compte connecté : publier, écouter les commandes, republier. */
   var enMarche = false;
   async function activer(utilisateur) {
+    if (!estChef()) return;
+    if (enMarche && uid === utilisateur.uid) return;
+    arreterEcoutes();
     uid = utilisateur.uid;
+    var gen = generation;
     nomPoste = nomPosteAuto();
     pastille('connecte', utilisateur.email || '');
-    if (enMarche) { await publier(); return; }
     enMarche = true;
 
     await publier();
+    if (gen !== generation || !estChef()) return;
 
-    fs.onSnapshot(
+    arreters.push(fs.onSnapshot(
       fs.query(fs.collection(db, COL_COMMANDES, uid, SOUS_FILE), fs.where('statut', '==', 'envoyee')),
-      async function (snap) {
+      function (snap) {
         var travail = [];
-        snap.forEach(function (d) { travail.push(traiterCommande(d.ref, d.data())); });
-        if (!travail.length) return;
-        await Promise.all(travail);
-        if (window.StorageService && window.StorageService.flush) window.StorageService.flush();
-        await publier();
-      }
-    );
+        snap.forEach(function (d) { travail.push(d); });
+        travail.sort(function (a, b) { return String(a.data().creeeA).localeCompare(String(b.data().creeeA)) || a.id.localeCompare(b.id); });
+        travail.forEach(function (d) {
+          if (enAttente.has(d.id)) return;
+          enAttente.add(d.id);
+          fileTravail = fileTravail.then(async function () {
+            if (gen === generation && estChef()) { await traiterCommande(d.ref); await publier(); }
+          }).catch(function (e) { pastille('erreur', String(e.message || e)); })
+            .finally(function () { enAttente.delete(d.id); });
+        });
+      }, function (e) { pastille('erreur', String(e.message || e)); }
+    ));
 
     window.addEventListener('pse-store-sync', publierBientot);
-    setInterval(function () { publier().catch(function () {}); }, 5 * 60000);
+    arreters.push(function () { window.removeEventListener('pse-store-sync', publierBientot); });
+    /* Battement de cœur : republie l'instantané toutes les 25 s tant que l'app
+     * tourne. Ainsi le champ `majA` reste frais et le téléphone voit « ordinateur
+     * éveillé » (au lieu de « en veille » entre deux actions, ce qui empêchait de
+     * clôturer). Si le Mac dort vraiment, ce timer est suspendu par macOS : le
+     * téléphone repasse alors en « en veille », ce qui est correct. */
+    var battement = setInterval(function () { publier().catch(function () {}); }, 25000);
+    arreters.push(function () { clearInterval(battement); });
+    /* Retour au premier plan / réveil : republication immédiate, sans attendre. */
+    var republierMaintenant = function () { publier().catch(function () {}); };
+    window.addEventListener('focus', republierMaintenant);
+    var visible = function () {
+      if (!document.hidden) republierMaintenant();
+    };
+    document.addEventListener('visibilitychange', visible);
+    arreters.push(function () { window.removeEventListener('focus', republierMaintenant); document.removeEventListener('visibilitychange', visible); });
   }
 
   /**
@@ -742,6 +957,8 @@
    * le mot de passe n'est demandé qu'une fois, au tout premier lancement.
    */
   async function demarrerAuto() {
+    if (authArreter || !estChef()) return;
+    var gen = generation;
     var s;
     try {
       s = await chargerSdk();
@@ -749,9 +966,10 @@
       pastille('erreur', String((e && e.message) || e));
       return;
     }
-    s.authM.onAuthStateChanged(s.auth, function (u) {
+    if (authArreter || !estChef() || gen !== generation) return;
+    authArreter = s.authM.onAuthStateChanged(s.auth, function (u) {
       if (u) activer(u).catch(function (e) { pastille('erreur', String(e && e.message || e)); });
-      else { uid = null; pastille('deconnecte', ''); }
+      else { arreterEcoutes(); pastille('deconnecte', ''); }
     });
   }
 

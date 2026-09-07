@@ -11,6 +11,8 @@ import type {
   Snapshot,
   Transport,
 } from './types'
+import { VERSION_CONTRAT } from './types'
+import { useHorloge } from '../../hooks/useHorloge'
 
 const MAX_HISTORIQUE = 60
 
@@ -25,6 +27,7 @@ export function BridgeProvider({ children }: { children: ReactNode }) {
   const [commandes, setCommandes] = useState<Command[]>([])
   const [erreur, setErreur] = useState<string | null>(null)
   const [session, setSession] = useState<Session | null>(null)
+  const maintenant = useHorloge(1_000).getTime()
   const transportRef = useRef<Transport | null>(null)
 
   if (transportRef.current === null) {
@@ -39,10 +42,21 @@ export function BridgeProvider({ children }: { children: ReactNode }) {
         case 'status':
           setStatus(event.status)
           setSession(transport.session?.() ?? null)
+          if (transport.authRequise && !transport.session?.()) {
+            setSnapshot(null)
+            setCommandes([])
+          }
           if (event.status === 'online') setErreur(null)
           break
         case 'snapshot':
           setSnapshot(event.snapshot)
+          break
+        case 'history':
+          setCommandes(liste => {
+            const merged = new Map(liste.map(c => [c.id, c]))
+            event.commandes.forEach(c => merged.set(c.id, c))
+            return [...merged.values()].sort((a,b) => b.creeeA.localeCompare(a.creeeA)).slice(0, MAX_HISTORIQUE)
+          })
           break
         case 'command':
           setCommandes((liste) =>
@@ -80,14 +94,27 @@ export function BridgeProvider({ children }: { children: ReactNode }) {
     await t?.seDeconnecter?.()
     setSession(null)
     setSnapshot(null)
+    setCommandes([])
   }, [])
 
   const envoyer = useCallback((type: CommandType, payload: CommandPayload = {}) => {
-    const commande = createCommand(type, payload)
+    const commande = createCommand(type, payload, snapshot)
+    const age = Date.now() - Date.parse(snapshot?.majA ?? '')
+    if (kind === 'firebase' && (status !== 'online' || !snapshot || snapshot.version !== VERSION_CONTRAT || !snapshot.deviceId || !Number.isFinite(age) || age > 90_000 || age < -5_000)) {
+      commande.statut = 'echouee'
+      commande.erreur = 'Poste indisponible, état ancien ou version incompatible. Reconnecte et actualise les deux appareils.'
+    }
     setCommandes((liste) => [commande, ...liste].slice(0, MAX_HISTORIQUE))
-    void transportRef.current?.send(commande)
+    if (commande.statut !== 'echouee') void transportRef.current?.send(commande)
     return commande
-  }, [])
+  }, [kind, status, snapshot])
+
+  const commandesAffichees = useMemo(() => commandes.map(c => {
+    const limite = Date.parse(c.expiresAt ?? c.creeeA) + 10_000
+    if (['en_attente', 'envoyee', 'en_cours'].includes(c.statut) && Number.isFinite(limite) && maintenant > limite)
+      return { ...c, statut: 'sans_confirmation' as const, erreur: 'Confirmation manquante. Vérifie le résultat sur l’ordinateur avant de recommencer.' }
+    return c
+  }), [commandes, maintenant])
 
   const value = useMemo<BridgeValue>(
     () => ({
@@ -97,7 +124,7 @@ export function BridgeProvider({ children }: { children: ReactNode }) {
       authRequise: transportRef.current?.authRequise ?? false,
       session,
       snapshot,
-      commandes,
+      commandes: commandesAffichees,
       erreur,
       connecter,
       deconnecter,
@@ -111,7 +138,7 @@ export function BridgeProvider({ children }: { children: ReactNode }) {
       kind,
       session,
       snapshot,
-      commandes,
+      commandesAffichees,
       erreur,
       connecter,
       deconnecter,

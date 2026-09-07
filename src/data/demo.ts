@@ -46,6 +46,7 @@ function seance(
     module: 'A1',
     moduleLabel: 'Module A1 — rythmes de vie',
     seance: 'Séance 3',
+    sequenceLabel: '3/5',
     phase: 'Apports',
     objectif: '',
     remise: '',
@@ -60,12 +61,14 @@ export function snapshotDemo(): Snapshot {
 
   return {
     version: VERSION_CONTRAT,
+    deviceId: 'demo',
     majA: new Date().toISOString(),
     poste: 'Poste de démonstration',
     date: aujourdhui,
     capacites: { projection: true, progression: true, agenda: true, actions: true },
 
     projection: {
+      sessionId: 'demo-projection',
       fenetreOuverte: true,
       coursTitre: 'Le sommeil et le rythme biologique',
       classeNom: 'Groupe A',
@@ -90,6 +93,14 @@ export function snapshotDemo(): Snapshot {
         { idx: 1, label: 'Document 2 — témoignages', visible: true },
         { idx: 2, label: 'Document 3 — repères horaires', visible: false },
       ],
+      roue: {
+        configuree: true,
+        classe: 'Groupe A',
+        dansLaRoue: 12,
+        total: 15,
+        dejaTires: 4,
+        dernier: 'Camille',
+      },
     },
 
     journee: [
@@ -152,5 +163,7 @@ export function snapshotDemo(): Snapshot {
       { id: 'a-03', texte: 'Relancer le service de reprographie', echeance: jourIso(-3), statut: 'a_faire', retard: true },
       { id: 'a-04', texte: 'Envoyer la progression au coordonnateur', echeance: jourIso(-5), statut: 'fait', retard: false },
     ],
+
+    statuts: ['Prévu', 'En cours', 'À terminer', 'Réalisé', 'Reporté', 'Annulé', 'Non réalisé'],
   }
 }

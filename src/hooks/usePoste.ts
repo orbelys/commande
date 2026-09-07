@@ -2,8 +2,8 @@ import { useBridge } from './useBridge'
 import { useHorloge } from './useHorloge'
 
 /** Au-delà de ce délai sans instantané, l'ordinateur ne publie plus.
- *  Le pont republie de lui-même toutes les 5 minutes : 12 laisse de la marge. */
-const VEILLE_MS = 12 * 60_000
+ *  Le pont republie toutes les 25 secondes : 90 laisse trois battements. */
+const VEILLE_MS = 90_000
 
 export type EtatPoste = 'hors_ligne' | 'connexion' | 'en_veille' | 'actif'
 
@@ -19,8 +19,7 @@ export interface Poste {
  * État réel de l'ordinateur, distinct de l'état du réseau.
  *
  * « Connecté » disait seulement que le téléphone parlait à Firebase. Or
- * l'ordinateur peut être fermé dans un sac : les commandes sont alors mises en
- * file et s'appliqueront à son réveil — mais il faut le dire.
+ * l'ordinateur peut être fermé dans un sac : on bloque les nouvelles commandes.
  */
 export function usePoste(): Poste {
   const { status, snapshot } = useBridge()
@@ -41,7 +40,7 @@ export function usePoste(): Poste {
   const maj = snapshot ? new Date(snapshot.majA).getTime() : null
   const ecart = maj ? maintenant.getTime() - maj : null
 
-  if (ecart === null || ecart > VEILLE_MS) {
+  if (ecart === null || !Number.isFinite(ecart) || ecart > VEILLE_MS || ecart < -5_000) {
     return {
       etat: 'en_veille',
       depuis: ecart,

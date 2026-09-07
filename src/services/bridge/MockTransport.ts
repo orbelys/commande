@@ -115,12 +115,13 @@ export class MockTransport implements Transport {
       case 'projection.corrige.basculer':
         if (p) {
           if (!p.corrigeDisponible) throw new Error('Aucun corrigé pour cette étape')
-          this.snapshot = { ...s, projection: { ...p, corrigeVisible: !p.corrigeVisible } }
+          this.snapshot = { ...s, projection: { ...p, corrigeVisible: payload.visible === true } }
         }
         break
 
       case 'projection.focus.basculer':
-        if (p) this.snapshot = { ...s, projection: { ...p, focus: !p.focus } }
+        if (p) this.snapshot = { ...s, projection: { ...p, focus: payload.visible === true,
+          documents: p.documents.map(d => ({ ...d, autorise: d.autorise ?? d.visible, visible: payload.visible !== true && (d.autorise ?? d.visible) })) } }
         break
 
       case 'projection.document.afficher':
@@ -131,7 +132,8 @@ export class MockTransport implements Transport {
             ...s,
             projection: {
               ...p,
-              documents: p.documents.map((d) => (d.idx === idx ? { ...d, visible } : d)),
+              focus: visible ? false : p.focus,
+              documents: p.documents.map((d) => d.idx === idx ? { ...d, visible, autorise: visible } : { ...d, visible: visible ? (d.autorise ?? d.visible) : d.visible }),
             },
           }
         }
@@ -171,6 +173,16 @@ export class MockTransport implements Transport {
         }
         break
 
+      case 'projection.roue.tourner':
+        if (!p?.roue?.configuree || p.roue.dejaTires >= p.roue.dansLaRoue) throw new Error('Roue indisponible : réinitialise le tirage')
+        this.snapshot = { ...s, projection: { ...p, roue: { ...p.roue, dejaTires: p.roue.dejaTires + 1, dernier: 'Élève tiré' } } }
+        break
+      case 'projection.roue.reinitialiser':
+        if (p?.roue) this.snapshot = { ...s, projection: { ...p, roue: { ...p.roue, dejaTires: 0, dernier: '' } } }
+        break
+      case 'projection.roue.cacher':
+        break
+
       case 'seance.statut':
         this.snapshot = this.majSeance(String(payload.seanceId), {
           statut: String(payload.statut) as StatutSeance,
@@ -190,6 +202,7 @@ export class MockTransport implements Transport {
       case 'seance.absents': {
         const codes = String(payload.codes || '').split(',').map((c) => c.trim()).filter(Boolean)
         const seanceId = String(payload.seanceId)
+        const avant = s.seances.find(x => x.id === seanceId)?.absents ?? []
         const maj = this.majSeance(seanceId, { absents: codes })
         const classeId = seanceId.split('|')[0]
         this.snapshot = {
@@ -197,7 +210,7 @@ export class MockTransport implements Transport {
           classes: maj.classes.map((c) => {
             if (c.id !== classeId) return c
             const dette = new Set(c.aRattraper)
-            codes.forEach((x) => dette.add(x))
+            codes.filter(x => !avant.includes(x)).forEach((x) => dette.add(x))
             // Un code décoché ici sort de la dette s'il n'est absent nulle part ailleurs.
             c.aRattraper.forEach((x) => {
               const ailleurs = maj.seances.some(
@@ -252,6 +265,8 @@ export class MockTransport implements Transport {
       case 'note.rapide':
         // Côté Electron : création d'une note flash. Rien à refléter ici.
         break
+      default:
+        throw new Error('Commande inconnue')
     }
   }
 

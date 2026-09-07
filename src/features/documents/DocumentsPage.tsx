@@ -31,6 +31,7 @@ export default function DocumentsPage() {
   return (
     <>
       <PageHeader titre="Documents" detail={projection.coursTitre} />
+      {projection.focus && <p>Focus actif : afficher un document quitte le Focus.</p>}
       <Card padding={false}>
         {projection.documents.length === 0 ? (
           <EmptyState titre="Aucun document" detail="Ce cours ne contient pas de document." />

@@ -11,3 +11,10 @@
 }
 
 .choixCompact button { flex: 1 1 auto; }
+
+.aide {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+  color: var(--c-text-muted);
+}

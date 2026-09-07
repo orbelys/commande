@@ -4,12 +4,11 @@ Télécommande web pour piloter l'application Electron **Suite PSE** depuis un
 téléphone : voir la journée, piloter le cours projeté en classe, mettre à jour
 la progression, cocher les actions à faire.
 
-> **État actuel.** Le site fonctionne de bout en bout en local avec des
-> **données fictives** (transport « simulation »). Le transport Firebase est
-> écrit et prêt ; la configuration du projet existant `devoirs-pse` est déjà en
-> place dans `.env.local`. Il reste à activer l'authentification et à compléter
-> les règles Firestore (§5). Le module à greffer dans la Suite PSE est fourni
-> dans `electron/`, avec sa notice.
+> **7 septembre 2026 : correctif de fiabilité, protocole 5.** Le compte et la liaison
+> Firebase existent déjà. Cette révision du dépôt durcit les commandes et leurs
+> confirmations. Le téléphone et Electron doivent être mis à jour
+> ensemble. Ne pas publier `docs/` seul : le téléphone v5 bloque un poste v4.
+> Voir `CORRECTIFS_TELECOMMANDE_2026-09-07.md` pour la recette et les limites.
 
 ---
 
@@ -242,10 +241,9 @@ Rappel : une modification dans `EDITEUR/` n'arrive dans l'application qu'après
 ## 7. Confidentialité et sécurité
 
 - Aucun mot de passe, clé privée, jeton ou identifiant dans le code.
-- **Aucun nom d'élève ne circule.** L'instantané ne contient que des intitulés
-  de cours, de classes, de créneaux et d'actions — pas de MOPPS, pas de donnée
-  de santé, pas d'aménagement, pas d'adresse. Cette règle est écrite en tête du
-  module Electron : ne pas ajouter de champ nominatif sans la revoir.
+- Les listes nominatives et le prénom tiré par la roue ne sont pas publiés.
+  Les codes de publipostage sont pseudonymes. Les titres, mémos, notes et actions
+  sont des textes libres synchronisés : ne pas y saisir de données sensibles.
 - `src/data/demo.ts` ne contient que des groupes fictifs (« Groupe A »…).
 - Les identifiants Firebase de la Suite PSE doivent passer par `safeStorage`
   d'Electron, jamais par un fichier en clair.

@@ -13,6 +13,8 @@ import styles from './CommandesPage.module.css'
 const TONS: Record<CommandStatus, Ton> = {
   en_attente: 'attention',
   envoyee: 'accent',
+  en_cours: 'accent',
+  sans_confirmation: 'attention',
   appliquee: 'ok',
   echouee: 'danger',
 }
@@ -20,6 +22,8 @@ const TONS: Record<CommandStatus, Ton> = {
 const MOTS: Record<CommandStatus, string> = {
   en_attente: 'En file',
   envoyee: 'Envoyée',
+  en_cours: 'En cours',
+  sans_confirmation: 'À vérifier',
   appliquee: 'Appliquée',
   echouee: 'Échec',
 }
@@ -29,7 +33,7 @@ export default function CommandesPage() {
   const { commandes, viderHistorique } = useBridge()
   const poste = usePoste()
   const enFile = commandes.filter(
-    (c) => c.statut === 'en_attente' || c.statut === 'envoyee',
+    (c) => ['en_attente', 'envoyee', 'en_cours'].includes(c.statut),
   ).length
 
   return (
@@ -43,8 +47,8 @@ export default function CommandesPage() {
               {enFile} commande{enFile > 1 ? 's' : ''} en attente.
             </strong>{' '}
             {poste.etat === 'hors_ligne'
-              ? 'Votre téléphone n’a pas de réseau : elles partiront dès qu’il en retrouvera, même si vous fermez l’application.'
-              : 'Votre ordinateur ne répond pas pour le moment. Elles s’appliqueront à son réveil, dans l’ordre.'}
+              ? 'Connexion interrompue. Les commandes périmées seront refusées à la reconnexion.'
+              : 'En attente de confirmation. Une commande périmée ne doit pas être rejouée.'}
           </p>
         </Card>
       )}
@@ -53,7 +57,7 @@ export default function CommandesPage() {
         action={
           commandes.length > 0 ? (
             <Button variante="discret" onClick={viderHistorique}>
-              Vider
+              Effacer la vue
             </Button>
           ) : undefined
         }

@@ -112,6 +112,50 @@ export default function ProjectionPage() {
 
       <Minuteur etat={projection.minuteur} dispo={disponible} />
 
+      {projection.roue?.configuree && (
+        <Card
+          titre="Roue de tirage"
+          action={<Badge ton="accent">{projection.roue.classe || 'Classe'}</Badge>}
+        >
+          <p className={styles.meta}>
+            Dans la roue : {projection.roue.dansLaRoue}
+            {projection.roue.total ? ` / ${projection.roue.total}` : ''} · déjà tirés :{' '}
+            {projection.roue.dejaTires}
+          </p>
+          {projection.roue.dernier && (
+            <p className={styles.titre}>🎯 {projection.roue.dernier}</p>
+          )}
+          <div className={styles.duo}>
+            <Button
+              taille="lg"
+              variante="principal"
+              icone="🎡"
+              disabled={!disponible}
+              onClick={() => envoyer('projection.roue.tourner')}
+            >
+              Tirer
+            </Button>
+            <Button
+              icone="↺"
+              disabled={!disponible}
+              onClick={() => envoyer('projection.roue.reinitialiser')}
+            >
+              Réinitialiser
+            </Button>
+          </div>
+          <Button
+            pleineLargeur
+            variante="secondaire"
+            icone="✕"
+            className={styles.corrige}
+            disabled={!disponible}
+            onClick={() => envoyer('projection.roue.cacher')}
+          >
+            Cacher la roue
+          </Button>
+        </Card>
+      )}
+
       <Card
         titre="Sommaire"
         padding={false}

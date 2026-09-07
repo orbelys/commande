@@ -25,6 +25,11 @@ export class FirebaseTransport implements Transport {
 
   private emitter = new Emitter()
   private off: Desabonnement[] = []
+  private authOff: Desabonnement | null = null
+  private generation = 0
+  private actif = false
+  private enLigne = false
+  private chargement: Promise<unknown> | null = null
   private compte: Session | null = null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private sdk: any = null
@@ -38,16 +43,28 @@ export class FirebaseTransport implements Transport {
   }
 
   connect(): void {
-    void this.demarrer()
+    if (this.actif) return
+    this.actif = true
+    void this.demarrer(++this.generation)
   }
 
   disconnect(): void {
-    this.off.forEach((f) => f())
-    this.off = []
+    this.actif = false
+    this.generation++
+    this.authOff?.()
+    this.authOff = null
+    this.nettoyerEcoutes()
     this.emitter.emit({ type: 'status', status: 'offline' })
   }
 
+  private nettoyerEcoutes(): void {
+    this.off.forEach((f) => f())
+    this.off = []
+    this.enLigne = false
+  }
+
   async seConnecter(email: string, motDePasse: string): Promise<void> {
+    this.connect()
     const { auth, authMod } = await this.charger()
     try {
       await authMod.signInWithEmailAndPassword(auth, email, motDePasse)
@@ -60,29 +77,33 @@ export class FirebaseTransport implements Transport {
     const { auth, authMod } = await this.charger()
     await authMod.signOut(auth)
     this.compte = null
-    this.disconnect()
+    this.nettoyerEcoutes()
+    this.emitter.emit({ type: 'status', status: 'offline' })
   }
 
   async send(command: Command): Promise<void> {
-    if (!this.compte) {
+    if (!this.compte || !this.enLigne) {
       this.emitter.emit({
         type: 'command',
         id: command.id,
         statut: 'echouee',
-        erreur: 'Non connecté',
+        erreur: 'Connexion au serveur indisponible. Réessaie après reconnexion.',
       })
       return
     }
     try {
+      const owner = this.compte.uid
       const { db, fs } = await this.charger()
-      const [c, uid, sous] = CHEMINS.fileCommandes(this.compte.uid)
+      if (this.compte?.uid !== owner || !this.enLigne) throw new Error('Session interrompue')
+      const [c, uid, sous] = CHEMINS.fileCommandes(owner)
       await fs.setDoc(fs.doc(db, c, uid, sous, command.id), {
         ...command,
         statut: 'envoyee' satisfies CommandStatus,
-        owner: this.compte.uid,
+        owner,
         origine: 'telephone',
       })
-      this.emitter.emit({ type: 'command', id: command.id, statut: 'envoyee' })
+      // L'abonnement fournit le statut serveur ; une écriture tardive ne doit
+      // pas faire régresser une confirmation déjà reçue.
     } catch (e) {
       this.emitter.emit({
         type: 'command',
@@ -96,6 +117,15 @@ export class FirebaseTransport implements Transport {
   /** Charge le SDK une seule fois et rend les objets utiles. */
   private async charger() {
     if (this.sdk) return this.sdk
+    if (!this.chargement) this.chargement = this.chargerUneFois().catch(e => {
+      this.chargement = null
+      throw e
+    })
+    await this.chargement
+    return this.sdk
+  }
+
+  private async chargerUneFois() {
     const config = lireConfigFirebase()
     if (!config) throw new Error('Firebase n’est pas configuré (voir .env.example).')
 
@@ -106,18 +136,8 @@ export class FirebaseTransport implements Transport {
     ])
     const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(config)
 
-    /*
-     * Cache local persistant : c'est lui qui rend l'application utilisable
-     * hors ligne — dans le métro, dans un couloir sans réseau.
-     *
-     * En lecture : le dernier instantané reçu reste affiché.
-     * En écriture : les commandes sont mises en file sur l'appareil et
-     * partent dès que le réseau revient, même si la page a été fermée
-     * entre-temps. Sans cela, elles vivaient en mémoire et disparaissaient.
-     *
-     * Si le navigateur refuse le stockage (navigation privée), on retombe
-     * sur un cache mémoire : l'application fonctionne, sans la file durable.
-     */
+    // Le cache conserve les lectures. Une écriture déjà partie peut attendre
+    // le réseau : Electron vérifie donc aussi sa date d'expiration.
     let db: unknown
     try {
       db = fs.initializeFirestore(app, {
@@ -131,20 +151,24 @@ export class FirebaseTransport implements Transport {
     return this.sdk
   }
 
-  private async demarrer(): Promise<void> {
+  private async demarrer(generation: number): Promise<void> {
     this.emitter.emit({ type: 'status', status: 'connecting' })
     let sdk
     try {
       sdk = await this.charger()
     } catch (e) {
+      if (generation !== this.generation) return
+      this.actif = false
       this.emitter.emit({ type: 'erreur', message: messageErreur(e) })
       this.emitter.emit({ type: 'status', status: 'offline' })
       return
     }
 
     const { auth, authMod } = sdk
-    this.off.push(
-      authMod.onAuthStateChanged(auth, (user: { uid: string; email: string | null } | null) => {
+    if (!this.actif || generation !== this.generation) return
+    this.authOff = authMod.onAuthStateChanged(auth, (user: { uid: string; email: string | null } | null) => {
+        if (!this.actif || generation !== this.generation) return
+        this.nettoyerEcoutes()
         if (!user) {
           this.compte = null
           this.emitter.emit({ type: 'status', status: 'offline' })
@@ -155,20 +179,30 @@ export class FirebaseTransport implements Transport {
         // l'application resterait sur l'écran de connexion en attendant le
         // premier instantané, qui peut ne jamais venir si le poste est éteint.
         this.emitter.emit({ type: 'status', status: 'connecting' })
-        this.ecouter(user.uid)
-      }),
-    )
+        this.ecouter(user.uid, generation)
+      })
   }
 
   /** Abonnements temps réel : instantané du poste + statut des commandes. */
-  private async ecouter(uid: string): Promise<void> {
-    const { db, fs } = await this.charger()
+  private ecouter(uid: string, generation: number): void {
+    const { db, fs } = this.sdk
+    const courant = () => this.actif && generation === this.generation && this.compte?.uid === uid
+    const erreur = (e: unknown) => {
+      if (!courant()) return
+      this.enLigne = false
+      this.emitter.emit({ type: 'status', status: 'offline' })
+      this.emitter.emit({ type: 'erreur', message: messageErreur(e) })
+    }
 
     const [pc, pid] = CHEMINS.poste(uid)
     this.off.push(
       fs.onSnapshot(
         fs.doc(db, pc, pid),
-        (doc: { exists: () => boolean; data: () => Snapshot }) => {
+        { includeMetadataChanges: true },
+        (doc: { exists: () => boolean; data: () => Snapshot; metadata: { fromCache: boolean } }) => {
+          if (!courant()) return
+          this.enLigne = !doc.metadata.fromCache && doc.exists()
+          this.emitter.emit({ type: 'status', status: this.enLigne ? 'online' : 'offline' })
           if (!doc.exists()) {
             this.emitter.emit({
               type: 'erreur',
@@ -177,9 +211,8 @@ export class FirebaseTransport implements Transport {
             return
           }
           this.emitter.emit({ type: 'snapshot', snapshot: doc.data() })
-          this.emitter.emit({ type: 'status', status: 'online' })
         },
-        (e: unknown) => this.emitter.emit({ type: 'erreur', message: messageErreur(e) }),
+        erreur,
       ),
     )
 
@@ -189,6 +222,14 @@ export class FirebaseTransport implements Transport {
         fs.query(fs.collection(db, cc, cid, sous), fs.orderBy('creeeA', 'desc'), fs.limit(60)),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (snap: any) => {
+          if (!courant()) return
+          const commandes: Command[] = []
+          snap.forEach((d: any) => {
+            const c = d.data()
+            if (c.id === d.id && typeof c.creeeA === 'string' && typeof c.type === 'string' && c.statut)
+              commandes.push(c as Command)
+          })
+          this.emitter.emit({ type: 'history', commandes })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           snap.docChanges().forEach((ch: any) => {
             const d = ch.doc.data() as Command
@@ -200,6 +241,7 @@ export class FirebaseTransport implements Transport {
             })
           })
         },
+        erreur,
       ),
     )
   }

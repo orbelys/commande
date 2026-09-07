@@ -1,5 +1,7 @@
 import { useBridge } from './useBridge'
 import type { Projection } from '../services/bridge/types'
+import { usePoste } from './usePoste'
+import { VERSION_CONTRAT } from '../services/bridge/types'
 
 export interface EtatProjection {
   projection: Projection | null
@@ -12,7 +14,8 @@ export interface EtatProjection {
 
 /** Lit l'état de la projection en classe dans l'instantané. */
 export function useProjection(): EtatProjection {
-  const { snapshot, status } = useBridge()
+  const { snapshot, status, commandes, transportId } = useBridge()
+  const poste = usePoste()
   const projection = snapshot?.projection ?? null
   const capacite = snapshot?.capacites.projection ?? false
 
@@ -28,7 +31,9 @@ export function useProjection(): EtatProjection {
 
   return {
     projection,
-    disponible: capacite && status === 'online',
+    disponible: capacite && status === 'online' && poste.etat === 'actif' &&
+      (transportId === 'mock' || snapshot?.version === VERSION_CONTRAT) &&
+      !commandes.some(c => c.type.startsWith('projection.') && ['en_attente','envoyee','en_cours'].includes(c.statut) && Date.parse(c.expiresAt ?? '') > Date.now()),
     etapeLabel: label,
     progressionPct:
       projection.nbEtapes > 0

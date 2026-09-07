@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Card from '../../components/ui/Card'
 import PageHeader from '../../components/ui/PageHeader'
 import Badge from '../../components/ui/Badge'
@@ -39,7 +39,7 @@ export default function ProgressionPage() {
 
   const groupes = useMemo(() => {
     const toutes = situerToutes(snapshot?.seances ?? [], maintenant)
-    const passee = (s: SeanceSituee) => s.moment === 'passee' || s.moment === 'autre_jour'
+    const passee = (s: SeanceSituee) => s.moment === 'passee' || (s.moment === 'autre_jour' && s.minutesAvant < 0)
     const aReprendre = (s: SeanceSituee) =>
       passee(s) && ['À terminer', 'Reporté', 'Non réalisé'].includes(s.statut)
 
@@ -184,8 +184,9 @@ function Bloc({
             <span className={styles.texte}>
               <span className={styles.classe}>{s.classeNom}</span>
               <span className={styles.detail}>
-                {[s.moduleLabel || s.module, s.seance, s.objectif].filter(Boolean).join(' · ') ||
-                  'Séance'}
+                {[s.moduleLabel || s.module, s.seance, s.sequenceLabel, s.objectif]
+                  .filter(Boolean)
+                  .join(' · ') || 'Séance'}
               </span>
               {s.moment !== 'autre_jour' && s.moment !== 'passee' && (
                 <span className={styles.quand}>{quand(s)}</span>
@@ -206,17 +207,33 @@ function Bloc({
 }
 
 function Panneau({ seance }: { seance: SeanceSituee }) {
-  const { envoyer, status, snapshot } = useBridge()
+  const { envoyer, status, snapshot, commandes } = useBridge()
   const [memo, setMemo] = useState(seance.memo)
+  const [envoiMemo, setEnvoiMemo] = useState(false)
+  const [memoCommande, setMemoCommande] = useState<string | null>(null)
+  const resultat = commandes.find(c => c.id === memoCommande)
+  useEffect(() => {
+    if (resultat && ['echouee', 'appliquee', 'sans_confirmation'].includes(resultat.statut)) setEnvoiMemo(false)
+  }, [resultat])
   const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
+
+  // Le mémo enregistré revient par l'instantané republié : quand seance.memo
+  // rattrape la valeur tapée, on lève l'état « en cours d'envoi ».
+  useEffect(() => {
+    if (memo === seance.memo) setEnvoiMemo(false)
+  }, [seance.memo, memo])
+
+  const memoModifie = memo !== seance.memo
+  const memoEnregistre = !memoModifie && memo.trim() !== ''
 
   return (
     <div className={styles.panneau}>
       <p className={styles.section}>Statut</p>
       <StatutRapide seance={seance} />
       <p className={styles.note}>
-        « À terminer » et « Reporté » se choisissent sur l’ordinateur : ils ouvrent la fenêtre de
-        reprise, qui demande où rattraper. Notez plutôt où vous en êtes ci-dessous.
+        « À terminer », « Reporté » et « Non réalisé » enregistrent le statut ; le placement du
+        rattrapage se règle ensuite sur l’ordinateur. Pour une séance qui se poursuit, notez où
+        vous en êtes dans le mémo de reprise ci-dessous.
       </p>
 
       <p className={styles.section}>Support de cours</p>
@@ -251,12 +268,21 @@ function Panneau({ seance }: { seance: SeanceSituee }) {
       />
       <Button
         pleineLargeur
-        variante="principal"
-        disabled={!dispo || memo === seance.memo}
-        onClick={() => envoyer('seance.memo', { seanceId: seance.id, memo })}
+        variante={memoEnregistre ? 'succes' : 'principal'}
+        disabled={!dispo || !memoModifie || envoiMemo}
+        onClick={() => {
+          setEnvoiMemo(true)
+          setMemoCommande(envoyer('seance.memo', { seanceId: seance.id, memo }).id)
+        }}
       >
-        Enregistrer le mémo
+        {envoiMemo
+          ? 'Enregistrement…'
+          : memoEnregistre
+            ? '✓ Mémo enregistré'
+            : 'Enregistrer le mémo'}
       </Button>
+
+      {resultat && ['echouee', 'sans_confirmation'].includes(resultat.statut) && <p role="alert">{resultat.erreur || 'Enregistrement non confirmé. Ton texte reste dans le champ.'}</p>}
 
       {seance.salle && <p className={styles.salle}>Salle {seance.salle}</p>}
     </div>

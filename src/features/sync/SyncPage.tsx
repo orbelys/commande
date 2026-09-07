@@ -6,6 +6,7 @@ import Badge from '../../components/ui/Badge'
 import { useBridge } from '../../hooks/useBridge'
 import { usePoste } from '../../hooks/usePoste'
 import { depuis } from '../../lib/format'
+import { VERSION_CONTRAT } from '../../services/bridge/types'
 import styles from './SyncPage.module.css'
 
 export default function SyncPage() {
@@ -24,7 +25,7 @@ export default function SyncPage() {
   } = useBridge()
 
   const enAttente = commandes.filter(
-    (c) => c.statut !== 'appliquee' && c.statut !== 'echouee',
+    (c) => ['en_attente', 'envoyee', 'en_cours'].includes(c.statut),
   ).length
   const poste = usePoste()
   const capacites = snapshot?.capacites
@@ -56,15 +57,21 @@ export default function SyncPage() {
           <Ligne label="Transport">{transportLibelle}</Ligne>
           {session && <Ligne label="Compte">{session.email}</Ligne>}
           <Ligne label="Poste">{snapshot?.poste ?? '—'}</Ligne>
+          <Ligne label="Versions téléphone / poste">{`${VERSION_CONTRAT} / ${snapshot?.version ?? '—'}`}</Ligne>
           <Ligne label="Dernier instantané">{depuis(snapshot?.majA ?? null)}</Ligne>
           <Ligne label="Commandes en cours">{String(enAttente)}</Ligne>
         </dl>
 
         <div className={styles.actions}>
           {authRequise && session ? (
+            <>
+            <Button pleineLargeur onClick={() => { deconnecter(); connecter() }}>
+              Relancer la liaison
+            </Button>
             <Button pleineLargeur onClick={() => void seDeconnecter()}>
               Se déconnecter du compte
             </Button>
+            </>
           ) : (
             <>
               <Button
@@ -121,15 +128,16 @@ export default function SyncPage() {
             : 'Transport Firebase actif. Le téléphone lit l’instantané publié par le poste et lui envoie des commandes.'}
         </p>
         <p className={styles.note}>
-          Aucun nom d’élève, aucune donnée de santé ni aucun aménagement ne transite par le
-          téléphone. Les codes du publipostage circulent pour le pointage des absents : ils sont
-          pseudonymes.
+          Les listes nominatives et le nom tiré par la roue ne sont pas transmis. Les codes
+          du publipostage sont pseudonymes. Les mémos, notes et actions sont synchronisés :
+          évitez d’y saisir des données sensibles.
         </p>
         <p className={styles.note}>
           Le téléphone et l’ordinateur ne se parlent pas directement : ils passent tous les deux par
-          Firebase. Ils n’ont donc jamais besoin d’être sur le même réseau. Si l’ordinateur est
-          éteint, vos décisions sont mises en file et s’appliquent à son réveil ; si le téléphone
-          n’a pas de réseau, elles patientent sur l’appareil, même application fermée.
+          Firebase. Ils peuvent utiliser des réseaux différents. Sans connexion ou sans état
+          récent du poste, les nouvelles commandes sont bloquées. Une commande déjà envoyée
+          expire après 20 secondes pour la projection, ou 5 minutes pour les autres actions.
+          En cas d’absence de confirmation, vérifiez l’état avant de recommencer.
         </p>
       </Card>
     </>
