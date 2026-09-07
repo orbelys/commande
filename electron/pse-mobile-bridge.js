@@ -54,6 +54,56 @@
   var nomPoste = 'Suite PSE';  /* précisé au démarrage */
   var timerPub = null;
 
+  /* ══ 0. Une seule fenêtre aux commandes ═══════════════════
+   *
+   * Les espaces de la Suite PSE se chargent dans la MÊME fenêtre : passer sur
+   * « Mon EDT » remplace cours.html, et le pont disparaissait avec. Le pont est
+   * donc chargé par toutes les pages principales — mais si toutes publiaient et
+   * appliquaient les commandes, « étape suivante » avancerait de deux crans.
+   *
+   * D'où cette règle : une seule fenêtre est « chef » à un instant donné. Elle
+   * seule se connecte à Firebase, publie et applique. Le relais passe tout seul
+   * en moins de 15 secondes si elle est fermée.
+   */
+  var CLE_CHEF = 'pse-mobile-chef';
+  var CLE_PROJECTION = 'pse-mobile-projection';
+  var CLE_RELAIS = 'pse-mobile-relais';
+  var BAIL_MS = 15000;
+  var BATTEMENT_MS = 5000;
+
+  var monId = 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  var suisChef = false;
+
+  function lireJson(cle) {
+    return safe(function () { return JSON.parse(window.StorageService.get(cle) || 'null'); });
+  }
+  function ecrireJson(cle, valeur) {
+    safe(function () { window.StorageService.set(cle, JSON.stringify(valeur)); });
+  }
+
+  function revendiquerRole() {
+    var bail = lireJson(CLE_CHEF);
+    var perime = !bail || !bail.at || (Date.now() - bail.at) > BAIL_MS;
+    var etaitChef = suisChef;
+
+    if (perime || bail.id === monId) {
+      ecrireJson(CLE_CHEF, { id: monId, at: Date.now(), page: nomPage() });
+      suisChef = true;
+    } else {
+      suisChef = false;
+    }
+
+    if (suisChef && !etaitChef) demarrerAuto();
+    if (!suisChef && etaitChef) { enMarche = false; pastille('relais', ''); }
+    if (!suisChef) pastille('relais', 'pilotée par ' + ((bail && bail.page) || 'une autre fenêtre'));
+    return suisChef;
+  }
+
+  function nomPage() {
+    var m = /([^/]+)\.html/.exec(String(location.pathname || ''));
+    return m ? m[1] : 'suite';
+  }
+
   /* ══ 1. Lien avec la fenêtre de projection ═══════════════
    *
    * Electron ouvre la projection dans une fenêtre séparée, dans un autre
@@ -79,18 +129,47 @@
     etatProjete = m.etat || null;
     etatRecuA = Date.now();
     cibleProjection = e.source || cibleProjection;
+    // La fenêtre qui tient la projection n'est pas forcément le chef :
+    // elle dépose l'état dans le store, que le chef relit.
+    ecrireJson(CLE_PROJECTION, { etat: etatProjete, at: etatRecuA, par: monId });
     publierBientot();
   });
 
+  /** État de projection connu, le mien ou celui déposé par une autre fenêtre. */
+  function projectionConnue() {
+    if (etatProjete && (Date.now() - etatRecuA) < PERIME_MS) return etatProjete;
+    var depot = lireJson(CLE_PROJECTION);
+    if (depot && depot.at && (Date.now() - depot.at) < PERIME_MS) return depot.etat || null;
+    return null;
+  }
+
   function projectionVivante() {
-    return !!etatProjete && (Date.now() - etatRecuA) < PERIME_MS;
+    return !!projectionConnue();
   }
 
   function envoyerProjection(message) {
-    if (!projectionVivante() || !cibleProjection) {
-      throw new Error('Aucune projection en cours');
+    if (!projectionVivante()) throw new Error('Aucune projection en cours');
+    // Lien direct si cette fenêtre tient la projection…
+    if (cibleProjection && etatProjete && (Date.now() - etatRecuA) < PERIME_MS) {
+      cibleProjection.postMessage(Object.assign({ type: 'mobile-cmd' }, message), '*');
+      return;
     }
-    cibleProjection.postMessage(Object.assign({ type: 'mobile-cmd' }, message), '*');
+    // …sinon on passe la consigne à la fenêtre qui la tient, via le store.
+    ecrireJson(CLE_RELAIS, { cmd: message, at: Date.now(), pour: (lireJson(CLE_PROJECTION) || {}).par || '' });
+    safe(function () { window.StorageService.flush && window.StorageService.flush(); });
+  }
+
+  /* Côté fenêtre qui tient la projection : exécuter les consignes relayées. */
+  var dernierRelais = 0;
+  function verifierRelais() {
+    if (!cibleProjection) return;
+    var r = lireJson(CLE_RELAIS);
+    if (!r || !r.at || r.at <= dernierRelais) return;
+    if (Date.now() - r.at > 10000) { dernierRelais = r.at; return; }
+    dernierRelais = r.at;
+    safe(function () {
+      cibleProjection.postMessage(Object.assign({ type: 'mobile-cmd' }, r.cmd || {}), '*');
+    });
   }
 
   /* ══ 2. Capacités réellement disponibles ══════════════════
@@ -112,7 +191,7 @@
 
   function etatProjection() {
     if (!projectionVivante()) return null;
-    return normaliserProjection(etatProjete);
+    return normaliserProjection(projectionConnue());
   }
 
   function normaliserProjection(e) {
@@ -599,11 +678,13 @@
    * Aucune console : un bouton visible en bas à gauche de la fenêtre. */
 
   var LIBELLES_ETAT = {
+    relais: '📱 Télécommande — autre fenêtre',
     connecte: '📱 Télécommande active',
     deconnecte: '📱 Télécommande — se connecter',
     erreur: '📱 Télécommande — problème'
   };
   var COULEURS_ETAT = {
+    relais: '#4f46e5',
     connecte: '#1a7f52',
     deconnecte: '#5c6470',
     erreur: '#b3261e'
@@ -620,12 +701,8 @@
         'padding:9px 15px;color:#fff;font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;' +
         'box-shadow:0 3px 14px rgba(0,0,0,.28);cursor:pointer;opacity:.93');
       el.onclick = function () {
-        if (uid) {
-          if (confirm('Télécommande connectée' + (el.dataset.detail ? ' (' + el.dataset.detail + ')' : '') +
-                      '.\n\nVoulez-vous vous déconnecter ?')) deconnecter();
-        } else {
-          ouvrirConnexion();
-        }
+        if (uid) ouvrirDiagnostic();
+        else ouvrirConnexion();
       };
       document.body.appendChild(el);
     }
@@ -638,6 +715,75 @@
     el.style.lineHeight = '1.35';
     el.style.background = COULEURS_ETAT[etat] || COULEURS_ETAT.deconnecte;
     el.title = detail || '';
+  }
+
+  /* Panneau de contrôle : ce que ce poste voit et publie réellement.
+     Sert à répondre sans deviner quand le téléphone paraît vide. */
+  function ouvrirDiagnostic() {
+    if (document.getElementById('pse-mobile-diag')) return;
+    var s = safe(construireInstantane) || {};
+    var c = s.capacites || {};
+    var oui = function (v) { return v ? '✅' : '❌'; };
+    var brutEdt = safe(function () {
+      return (JSON.parse(window.StorageService.get(CLE_EDT) || '{}').cache || {}).raw || '';
+    }) || '';
+
+    var lignes = [
+      ['Compte', (safe(function () { return sdk.auth.currentUser.email; })) || uid || '—'],
+      ['Journée publiée', (s.journee || []).length + ' ligne(s)'],
+      ['Séances publiées', (s.seances || []).length],
+      ['Classes', (s.classes || []).length],
+      ['Actions', (s.actions || []).length],
+      ['— Sources —', ''],
+      ['Store de fichiers', oui(!!window.storeAPI)],
+      ['Emploi du temps (ICS)', brutEdt ? Math.round(brutEdt.length / 1024) + ' Ko' : '❌ vide'],
+      ['PSE_PROG (progression)', oui(!!(window.PSE_PROG && window.PSE_PROG.slotsForDate))],
+      ['PSE_AGENDA', oui(!!window.PSE_AGENDA)],
+      ['PSE_REUNIONS', oui(!!window.PSE_REUNIONS)],
+      ['— Capacités —', ''],
+      ['Projection', oui(c.projection)],
+      ['Progression', oui(c.progression)],
+      ['Agenda', oui(c.agenda)],
+      ['Actions', oui(c.actions)]
+    ];
+
+    var fond = document.createElement('div');
+    fond.id = 'pse-mobile-diag';
+    fond.setAttribute('style',
+      'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.55);' +
+      'display:flex;align-items:center;justify-content:center;' +
+      'font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif');
+    fond.innerHTML =
+      '<div style="background:#fff;color:#14181f;padding:22px;border-radius:14px;' +
+      'width:min(460px,94vw);max-height:86vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)">' +
+      '<strong style="font-size:17px">Télécommande — état du poste</strong>' +
+      '<table style="width:100%;margin:14px 0;border-collapse:collapse">' +
+      lignes.map(function (l) {
+        if (!l[1] && String(l[0]).indexOf('—') === 0) {
+          return '<tr><td colspan="2" style="padding:10px 0 4px;font-size:12px;font-weight:700;' +
+            'letter-spacing:.06em;color:#8a94a6">' + echapper(l[0].replace(/—/g, '').trim().toUpperCase()) + '</td></tr>';
+        }
+        return '<tr><td style="padding:3px 0;color:#5c6470">' + echapper(String(l[0])) +
+          '</td><td style="padding:3px 0;text-align:right;font-weight:600">' + echapper(String(l[1])) + '</td></tr>';
+      }).join('') +
+      '</table>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">' +
+      '<button id="pse-diag-deco" style="padding:9px 14px;border:1px solid #d7dce3;background:#fff;' +
+      'border-radius:8px;font:inherit;cursor:pointer">Se déconnecter</button>' +
+      '<button id="pse-diag-pub" style="padding:9px 14px;border:0;background:#1f5fd6;color:#fff;' +
+      'border-radius:8px;font:inherit;font-weight:600;cursor:pointer">Republier maintenant</button>' +
+      '<button id="pse-diag-ok" style="padding:9px 14px;border:1px solid #d7dce3;background:#fff;' +
+      'border-radius:8px;font:inherit;cursor:pointer">Fermer</button>' +
+      '</div></div>';
+    document.body.appendChild(fond);
+
+    fond.querySelector('#pse-diag-ok').onclick = function () { fond.remove(); };
+    fond.querySelector('#pse-diag-deco').onclick = function () { fond.remove(); deconnecter(); };
+    fond.querySelector('#pse-diag-pub').onclick = function (e) {
+      e.target.textContent = 'Publication…';
+      publier().then(function () { e.target.textContent = '✓ Publié'; })
+        .catch(function (err) { e.target.textContent = 'Échec : ' + ((err && err.message) || err); });
+    };
   }
 
   function ouvrirConnexion() {
@@ -720,15 +866,26 @@
   }
 
   /* Le pont s'installe tout seul : pastille visible, reconnexion automatique. */
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { pastille('deconnecte', ''); demarrerAuto(); });
-  } else {
+  function installer() {
     pastille('deconnecte', '');
-    demarrerAuto();
+    revendiquerRole();
+    setInterval(revendiquerRole, BATTEMENT_MS);
+    setInterval(verifierRelais, 1000);
+    // Rendre la main proprement en fermant la fenêtre : le relais est immédiat.
+    window.addEventListener('beforeunload', function () {
+      if (suisChef) safe(function () { window.StorageService.remove(CLE_CHEF); });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', installer);
+  } else {
+    installer();
   }
 
   window.PSE_MOBILE = {
     ouvrirConnexion: ouvrirConnexion,
+    diagnostic: ouvrirDiagnostic,
     connecter: connecter,
     deconnecter: deconnecter,
     publier: publier,
