@@ -1,5 +1,6 @@
 import type { Snapshot, Seance, StatutSeance } from '../services/bridge/types'
 import { VERSION_CONTRAT } from '../services/bridge/types'
+import { decalerJour } from '../lib/jours'
 
 /**
  * Données ENTIÈREMENT FICTIVES pour la simulation hors ligne.
@@ -59,7 +60,7 @@ function seance(
 export function snapshotDemo(): Snapshot {
   const aujourdhui = jourIso(0)
 
-  return {
+  const snapshot: Snapshot = {
     version: VERSION_CONTRAT,
     deviceId: 'demo',
     majA: new Date().toISOString(),
@@ -166,4 +167,16 @@ export function snapshotDemo(): Snapshot {
 
     statuts: ['Prévu', 'En cours', 'À terminer', 'Réalisé', 'Reporté', 'Annulé', 'Non réalisé'],
   }
+  const debut = decalerJour(lundi(aujourdhui), -7)
+  snapshot.agenda = {
+    debut, fin: decalerJour(debut, 20),
+    jours: Array.from({ length: 21 }, (_, i) => {
+      const date = decalerJour(debut, i)
+      return { date, evenements: date === aujourdhui ? snapshot.journee : i % 7 < 5 ? [{
+        id: `demo:${date}`, type: 'cours' as const, debut: '10:00', fin: '11:00',
+        titre: 'PSE — Groupe A', lieu: 'B12', classeNom: 'Groupe A', statut: '',
+      }] : [] }
+    }),
+  }
+  return snapshot
 }

@@ -208,6 +208,15 @@ export interface ActionItem {
   retard: boolean
 }
 
+/** Trois semaines d'agenda en lecture seule, compatibles avec les anciens postes. */
+export interface AgendaPeriode {
+  debut: string
+  fin: string
+  jours: { date: string; evenements: EvenementJournee[] }[]
+  /** Certaines journées dépassaient le budget de publication. */
+  incomplet?: boolean
+}
+
 /**
  * Projection en lecture seule de l'état d'Electron.
  * Le téléphone n'écrit jamais dedans : il envoie des commandes,
@@ -226,6 +235,7 @@ export interface Snapshot {
   capacites: Capacites
   projection: Projection | null
   journee: EvenementJournee[]
+  agenda?: AgendaPeriode
   seances: Seance[]
   classes: Classe[]
   actions: ActionItem[]

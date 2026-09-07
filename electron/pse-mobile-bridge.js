@@ -620,7 +620,7 @@
 
   function construireInstantane(dateIso) {
     var iso = dateIso || isoAujourdhui();
-    return {
+    var instantane = {
       version: VERSION_CONTRAT,
       deviceId: deviceId(),
       majA: new Date().toISOString(),
@@ -634,6 +634,28 @@
       classes: classes(),
       actions: actions(iso)
     };
+    // Trois semaines bornées ; garder une marge sous la limite du document cloud.
+    var budget = Math.max(0, Math.min(250000, 750000 - JSON.stringify(instantane).length * 3));
+    instantane.agenda = agendaPeriode(iso, instantane.journee, budget);
+    return instantane;
+  }
+
+  function agendaPeriode(iso, aujourdHui, budget) {
+    var jourSemaine = (new Date(iso + 'T12:00:00').getDay() + 6) % 7;
+    var debut = decalerIso(iso, -jourSemaine - 7);
+    var dates = [], jours = [], incomplet = false;
+    for (var i = 0; i < 21; i++) dates.push({ date: decalerIso(debut, i), distance: Math.abs(i - jourSemaine - 7) });
+    dates.sort(function (a, b) { return a.distance - b.distance || a.date.localeCompare(b.date); });
+    dates.forEach(function (d) {
+      var lot = { date: d.date, evenements: d.date === iso ? aujourdHui : journee(d.date) };
+      // Trois octets par unité UTF-16 majorent aussi les caractères accentués.
+      var taille = JSON.stringify(lot).length * 3;
+      if (taille > budget) { incomplet = true; return; }
+      budget -= taille;
+      jours.push(lot);
+    });
+    jours.sort(function (a, b) { return a.date.localeCompare(b.date); });
+    return { debut: debut, fin: decalerIso(debut, 20), jours: jours, incomplet: incomplet };
   }
 
   /* ══ 4. Application des commandes ═════════════════════════ */
