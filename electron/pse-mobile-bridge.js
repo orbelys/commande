@@ -267,6 +267,8 @@
       corrigeVisible: !!e.corrigeVisible,
       corrigeDisponible: !!e.corrigeDisponible,
       focus: !!e.focus,
+      audio: e.audio ? {disponible:!!e.audio.disponible,statut:['lecture','pause'].indexOf(e.audio.statut)>=0?e.audio.statut:'repos',cible:e.audio.cible==='corrige'?'corrige':'question',lisible:!!e.audio.lisible,erreur:String(e.audio.erreur||'').slice(0,300)} : null,
+      accessibilite: e.accessibilite ? {taille:Number(e.accessibilite.taille)||1,contraste:!!e.accessibilite.contraste,interligne:!!e.accessibilite.interligne} : null,
       sommaire: (e.sommaire || []).map(function (s, i) {
         return {
           idx: typeof s.idx === 'number' ? s.idx : i,
@@ -720,6 +722,12 @@
     'projection.minuteur.pause': function () { return envoyerProjection({ cmd: 'timer-pause' }); },
     'projection.minuteur.reprendre': function () { return envoyerProjection({ cmd: 'timer-reprendre' }); },
     'projection.minuteur.arreter': function () { return envoyerProjection({ cmd: 'timer-stop' }); },
+    'projection.audio.lire': function () { return envoyerProjection({ cmd:'audio-lire' }); },
+    'projection.audio.pause': function () { return envoyerProjection({ cmd:'audio-pause' }); },
+    'projection.audio.reprendre': function () { return envoyerProjection({ cmd:'audio-reprendre' }); },
+    'projection.audio.arreter': function () { return envoyerProjection({ cmd:'audio-stop' }); },
+    'projection.accessibilite.taille': function (p) { return envoyerProjection({ cmd:'a11y-taille',taille:p.taille }); },
+    'projection.accessibilite.prereglage': function (p) { return envoyerProjection({ cmd:'a11y-prereglage',nom:p.nom }); },
     'projection.roue.tourner': function () { return envoyerProjection({ cmd: 'roue-spin' }); },
     'projection.roue.reinitialiser': function () { return envoyerProjection({ cmd: 'roue-reset' }); },
     'projection.roue.cacher': function () { return envoyerProjection({ cmd: 'roue-hide' }); },

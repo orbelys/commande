@@ -78,6 +78,8 @@ export function snapshotDemo(): Snapshot {
       corrigeVisible: false,
       corrigeDisponible: true,
       focus: false,
+      audio: { disponible: true, statut: 'repos', cible: 'question', lisible: true, erreur: '' },
+      accessibilite: { taille: 1, contraste: false, interligne: false },
       sommaire: [
         { idx: 0, label: 'Question 1 — repérer', corrigeDisponible: true },
         { idx: 1, label: 'Question 2 — expliquer', corrigeDisponible: true },

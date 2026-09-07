@@ -139,6 +139,18 @@ export class MockTransport implements Transport {
         }
         break
 
+      case 'projection.audio.lire':
+      case 'projection.audio.pause':
+      case 'projection.audio.reprendre':
+      case 'projection.audio.arreter':
+        if (p?.audio) this.snapshot = { ...s, projection: { ...p, audio: { ...p.audio, cible: 'question', statut: command.type.endsWith('arreter') ? 'repos' : command.type.endsWith('pause') ? 'pause' : 'lecture' } } }
+        break
+      case 'projection.accessibilite.taille':
+        if (p?.accessibilite) this.snapshot = { ...s, projection: { ...p, accessibilite: { ...p.accessibilite, taille: Math.min(2, Math.max(0.7, Number(payload.taille))) } } }
+        break
+      case 'projection.accessibilite.prereglage':
+        if (p?.accessibilite) this.snapshot = { ...s, projection: { ...p, accessibilite: { taille: payload.nom === 'fond' ? 1.45 : 1, contraste: payload.nom === 'fond', interligne: payload.nom === 'fond' } } }
+        break
       case 'projection.minuteur.demarrer':
         if (p) {
           this.snapshot = {
@@ -272,7 +284,8 @@ export class MockTransport implements Transport {
 
   private majEtape(p: NonNullable<Snapshot['projection']>, etape: number) {
     const dispo = etape >= 0 ? (p.sommaire[etape]?.corrigeDisponible ?? false) : false
-    return { ...p, etape, corrigeVisible: false, corrigeDisponible: dispo }
+    return { ...p, etape, corrigeVisible: false, corrigeDisponible: dispo,
+      audio: p.audio ? { ...p.audio, statut: 'repos' as const, lisible: etape >= 0 } : p.audio }
   }
 
   private majSeance(id: string, patch: Partial<Snapshot['seances'][number]>): Snapshot {

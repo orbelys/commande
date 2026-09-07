@@ -24,6 +24,28 @@ async function main(){
  if(process.argv.includes('--baseline')){check('Bug reproduit : liaison active mais commandes bloquees avec instantane frais',green&&await next.isDisabled());return;}
  check('En-tete et projection concordants apres montage decale',green&&await next.isEnabled());
  for(let i=0;i<18;i++){await p.clock.runFor(2000);await p.evaluate(()=>window.recevoir());await p.waitForFunction(()=>Date.parse(window.fixture.snapshot.majA)===Date.now());check('Instantane frais pilotable '+i,await next.isEnabled());}
+ check('Accessibilite repliee par defaut',await p.getByRole('button',{name:'Accessibilité',exact:true}).getAttribute('aria-expanded')==='false');
+ for(const [label,type,statut] of [['Lire la question','lire','lecture'],['Pause','pause','pause'],['Reprendre','reprendre','lecture'],['Arrêter la lecture','arreter','repos']]){
+   await p.getByRole('button',{name:label,exact:true}).click();
+   check('Audio telephone '+type,await p.evaluate(t=>window.fixture.commandes[0].type==='projection.audio.'+t,type));
+   await p.evaluate(st=>{window.confirmer();window.recevoir({projection:{...window.fixture.snapshot.projection,audio:{...window.fixture.snapshot.projection.audio,statut:st}}})},statut);
+   await p.waitForFunction(st=>window.fixture.snapshot.projection.audio.statut===st,statut);
+ }
+ await p.getByRole('button',{name:'Accessibilité',exact:true}).click();
+ check('Accessibilite deployee',await p.getByRole('button',{name:'Accessibilité',exact:true}).getAttribute('aria-expanded')==='true');
+ await p.getByRole('button',{name:'Agrandir le texte',exact:true}).click();
+ check('Zoom absolu envoyé',await p.evaluate(()=>window.fixture.commandes[0].type==='projection.accessibilite.taille'&&window.fixture.commandes[0].payload.taille===1.15));
+ await p.evaluate(()=>{window.confirmer();window.recevoir({projection:{...window.fixture.snapshot.projection,accessibilite:{taille:2,contraste:false,interligne:false}}})});
+ await p.waitForFunction(()=>window.fixture.snapshot.projection.accessibilite.taille===2);
+ check('Zoom borne haute',await p.getByRole('button',{name:'Agrandir le texte',exact:true}).isDisabled());
+ await p.getByRole('button',{name:'Fond de classe',exact:true}).click();
+ check('Mode fond de classe envoyé',await p.evaluate(()=>window.fixture.commandes[0].payload.nom==='fond'));
+ await p.evaluate(()=>window.confirmer());
+ await p.getByRole('button',{name:'Réinitialiser l’accessibilité',exact:true}).click();
+ check('Reinitialisation envoyée',await p.evaluate(()=>window.fixture.commandes[0].payload.nom==='reset'));
+ await p.evaluate(()=>{window.confirmer();window.recevoir({projection:{...window.fixture.snapshot.projection,accessibilite:{taille:0.7,contraste:false,interligne:false}}})});
+ await p.waitForFunction(()=>window.fixture.snapshot.projection.accessibilite.taille===0.7);
+ check('Zoom borne basse',await p.getByRole('button',{name:'Diminuer le texte',exact:true}).isDisabled());
  await next.click();await p.getByText(/Confirmation en attente/).waitFor();check('Commande en attente expliquee et double clic bloque',await next.isDisabled());
  await p.evaluate(()=>window.confirmer('echouee','L’étape a changé'));
  await p.getByText(/L’étape a changé/).waitFor();check('Erreur de commande visible dans la projection',await next.isEnabled());
@@ -44,6 +66,12 @@ async function main(){
  await p.evaluate(()=>window.commandes([{...window.fixture.commandes[0],id:'expiree',deviceId:window.fixture.snapshot.deviceId,expiresAt:new Date(Date.now()-1000).toISOString()}]));
  await p.waitForFunction(()=>window.fixture.commandes[0]?.id==='expiree');check('Une commande expiree ne bloque pas le cours actuel',await next.isEnabled());
  await p.evaluate(()=>window.commandes([]));
+ await p.evaluate(()=>{window.audioAvant=window.fixture.snapshot.projection.audio;window.accAvant=window.fixture.snapshot.projection.accessibilite;window.recevoir({projection:{...window.fixture.snapshot.projection,audio:null,accessibilite:null}})});
+ await p.getByText('Mise à jour d’Electron nécessaire.',{exact:true}).waitFor();
+ check('Ancien Electron : audio desactive sans commande inconnue',await p.getByRole('button',{name:'Lire la question',exact:true}).isDisabled());
+ await p.evaluate(()=>window.recevoir({projection:{...window.fixture.snapshot.projection,audio:window.audioAvant,accessibilite:window.accAvant}}));
+ await p.getByRole('button',{name:'Fond de classe',exact:true}).waitFor();
+ check('Nouvelles capacites reçues sans rechargement',await p.getByRole('button',{name:'Lire la question',exact:true}).isEnabled());
  for(const width of [320,390,768,1280]){await p.setViewportSize({width,height:900});check('Sans debordement '+width,await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));}
  if(process.env.TEST_OUTPUT){await p.setViewportSize({width:390,height:844});await p.screenshot({path:path.join(process.env.TEST_OUTPUT,'liaison.png'),fullPage:true});}
  check('Aucune erreur navigateur',errors.length===0);

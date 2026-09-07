@@ -102,6 +102,8 @@ export interface Projection {
   documents: DocumentProjete[]
   /** Absent si le poste tourne encore sur une version antérieure du pont. */
   minuteur?: Minuteur
+  audio?: { disponible: boolean; statut: 'repos' | 'lecture' | 'pause'; cible: 'question' | 'corrige'; lisible: boolean; erreur: string } | null
+  accessibilite?: { taille: number; contraste: boolean; interligne: boolean } | null
   /** Absent si le poste tourne encore sur une version antérieure du pont. */
   roue?: RoueEtat
 }
@@ -258,6 +260,12 @@ export type CommandType =
   | 'projection.minuteur.pause'
   | 'projection.minuteur.reprendre'
   | 'projection.minuteur.arreter'
+  | 'projection.audio.lire'
+  | 'projection.audio.pause'
+  | 'projection.audio.reprendre'
+  | 'projection.audio.arreter'
+  | 'projection.accessibilite.taille'
+  | 'projection.accessibilite.prereglage'
   | 'projection.roue.tourner'
   | 'projection.roue.reinitialiser'
   | 'projection.roue.cacher'

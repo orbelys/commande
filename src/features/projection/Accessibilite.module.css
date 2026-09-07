@@ -1,0 +1,9 @@
+.section { margin-top: var(--sp-3); }
+.commandes { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; gap: 8px; }
+.commandes button, .taille button, .prereglages button { min-height: 44px; padding: 8px; }
+.options { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--c-border); }
+.options h3 { font-size: 1rem; letter-spacing: 0; margin-bottom: 12px; }
+.taille { display: grid; grid-template-columns: minmax(0, 1fr) 44px 56px 44px; align-items: center; gap: 4px; font-size: .875rem; }
+.taille output { text-align: center; font-variant-numeric: tabular-nums; }
+.prereglages { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; margin-top: 12px; }
+.note { margin-top: 8px; font-size: .875rem; color: var(--c-text-muted); overflow-wrap: anywhere; }

@@ -8,6 +8,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import { useBridge } from '../../hooks/useBridge'
 import { useProjection } from '../../hooks/useProjection'
 import Minuteur from './Minuteur'
+import Accessibilite from './Accessibilite'
 import styles from './ProjectionPage.module.css'
 
 /** Télécommande du cours projeté en classe. */
@@ -113,6 +114,7 @@ export default function ProjectionPage() {
             Fenêtre élèves
           </Button>
         </div>
+        <Accessibilite projection={projection} disponible={disponible} />
       </Card>
 
       <Minuteur etat={projection.minuteur} dispo={disponible} />
