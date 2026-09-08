@@ -200,10 +200,17 @@ export default function Besoins({ seance }: { seance: Seance }) {
         <>
           <div className={styles.scrim} onClick={() => setSheet(null)} />
           <div className={styles.sheet}>
-            <div className={styles.grab} />
-            <div className={styles.obl}>{sheet.item}</div>
-            <div className={styles.obd}>
-              {DOMAINES[sheet.di].t} · {actif}
+            <button type="button" className={styles.grab} onClick={() => setSheet(null)} aria-label="Fermer" />
+            <div className={styles.sheetHead}>
+              <div className={styles.sheetTitre}>
+                <div className={styles.obl}>{sheet.item}</div>
+                <div className={styles.obd}>
+                  {DOMAINES[sheet.di].t} · {actif}
+                </div>
+              </div>
+              <button type="button" className={styles.close} onClick={() => setSheet(null)} aria-label="Fermer">
+                ✕
+              </button>
             </div>
 
             <div className={styles.slab}>
@@ -276,10 +283,15 @@ export default function Besoins({ seance }: { seance: Seance }) {
               placeholder="Ex. : après reformulation en une étape, réalise seul les 3 exercices."
             />
 
-            <button type="button" className={styles.save} disabled={niveau == null || !dispo} onClick={enregistrerObs}>
-              Enregistrer l’observation
-            </button>
-            <p className={styles.opthint}>Seul le niveau est requis — le reste enrichit la synthèse.</p>
+            <div className={styles.duo}>
+              <button type="button" className={styles.annuler} onClick={() => setSheet(null)}>
+                Annuler
+              </button>
+              <button type="button" className={styles.save} disabled={niveau == null || !dispo} onClick={enregistrerObs}>
+                Enregistrer
+              </button>
+            </div>
+            <p className={styles.opthint}>Seul le niveau est requis — le reste enrichit la synthèse. « Annuler » ou ✕ pour fermer sans enregistrer.</p>
           </div>
         </>
       )}
