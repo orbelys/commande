@@ -11,6 +11,24 @@ import Minuteur from './Minuteur'
 import Accessibilite from './Accessibilite'
 import styles from './ProjectionPage.module.css'
 
+/** Libellé lisible du type d'une ressource projetée. */
+function typeRessource(type: string): string {
+  switch (type) {
+    case 'youtube':
+      return 'Vidéo YouTube'
+    case 'video':
+      return 'Vidéo'
+    case 'audio':
+      return 'Audio'
+    case 'image':
+      return 'Image'
+    case 'pdf':
+      return 'Document PDF'
+    default:
+      return 'Ressource'
+  }
+}
+
 /** Télécommande du cours projeté en classe. */
 export default function ProjectionPage() {
   const { envoyer, snapshot } = useBridge()
@@ -160,6 +178,58 @@ export default function ProjectionPage() {
           >
             Cacher la roue
           </Button>
+        </Card>
+      )}
+
+      {projection.ressources && projection.ressources.length > 0 && (
+        <Card
+          titre="Ressources"
+          action={
+            (projection.ressourceActive ?? -1) >= 0 ? (
+              <Button
+                variante="discret"
+                disabled={!disponible}
+                onClick={() => envoyer('projection.ressource.fermer')}
+              >
+                ✕ Fermer
+              </Button>
+            ) : undefined
+          }
+        >
+          <p className={styles.note}>
+            Projette une vidéo ou un document préparé sur l’écran des élèves.
+          </p>
+          {projection.ressources.map((r) => {
+            const active = (projection.ressourceActive ?? -1) === r.idx
+            return (
+              <ListRow
+                key={r.idx}
+                titre={r.titre}
+                sousTitre={typeRessource(r.type)}
+                actif={active}
+                droite={
+                  active ? (
+                    <Badge ton="accent">À l’écran</Badge>
+                  ) : (
+                    <Button
+                      taille="sm"
+                      variante="principal"
+                      icone="▶"
+                      disabled={!disponible || !projection.fenetreOuverte}
+                      onClick={() => envoyer('projection.ressource.afficher', { index: r.idx })}
+                    >
+                      Projeter
+                    </Button>
+                  )
+                }
+              />
+            )
+          })}
+          {!projection.fenetreOuverte && (
+            <p className={styles.note}>
+              Ouvre d’abord la fenêtre élèves pour projeter une ressource.
+            </p>
+          )}
         </Card>
       )}
 

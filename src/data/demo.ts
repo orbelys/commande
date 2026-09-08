@@ -104,6 +104,11 @@ export function snapshotDemo(): Snapshot {
         dejaTires: 4,
         dernier: 'Camille',
       },
+      ressources: [
+        { idx: 0, titre: 'Activité physique au travail', type: 'youtube' },
+        { idx: 1, titre: 'Fiche — prévenir les TMS', type: 'pdf' },
+      ],
+      ressourceActive: -1,
     },
 
     journee: [

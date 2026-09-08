@@ -58,6 +58,14 @@ export interface DocumentProjete {
   autorise?: boolean
 }
 
+/** Une ressource préparée (vidéo YouTube, image, PDF…) projetable à distance. */
+export interface RessourceProjetee {
+  idx: number
+  titre: string
+  /** 'youtube' | 'video' | 'audio' | 'image' | 'pdf' … */
+  type: string
+}
+
 /** Une étape du sommaire de projection (P.gotoStep). */
 export interface EtapeProjetee {
   idx: number
@@ -106,6 +114,10 @@ export interface Projection {
   accessibilite?: { taille: number; contraste: boolean; interligne: boolean } | null
   /** Absent si le poste tourne encore sur une version antérieure du pont. */
   roue?: RoueEtat
+  /** Ressources préparées (vidéos, PDF…) projetables à distance. Absent sur un pont antérieur. */
+  ressources?: RessourceProjetee[]
+  /** Index de la ressource actuellement projetée (-1 = aucune). Absent sur un pont antérieur. */
+  ressourceActive?: number
 }
 
 /** Statuts d'une séance, tels qu'ils existent dans la progression. */
@@ -269,6 +281,8 @@ export type CommandType =
   | 'projection.roue.tourner'
   | 'projection.roue.reinitialiser'
   | 'projection.roue.cacher'
+  | 'projection.ressource.afficher'
+  | 'projection.ressource.fermer'
   // — progression (créneau d'une classe)
   | 'seance.statut'
   | 'seance.remise'

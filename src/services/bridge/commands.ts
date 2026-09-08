@@ -21,6 +21,8 @@ const LIBELLES: Record<CommandType, string> = {
   'projection.roue.tourner': 'Tourner la roue',
   'projection.roue.reinitialiser': 'Réinitialiser la roue',
   'projection.roue.cacher': 'Cacher la roue',
+  'projection.ressource.afficher': 'Projeter une ressource',
+  'projection.ressource.fermer': 'Fermer la ressource',
   'seance.statut': 'Changer le statut de la séance',
   'seance.remise': 'Marquer la remise du support',
   'seance.memo': 'Écrire le mémo de reprise',
