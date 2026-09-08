@@ -11,6 +11,7 @@ import ARattraper from '../seance/ARattraper'
 import { useBridge } from '../../hooks/useBridge'
 import { useHorloge } from '../../hooks/useHorloge'
 import { quand, situerToutes, type SeanceSituee } from '../../lib/seances'
+import { grouperSimultanees, type Groupe } from '../../lib/groupes'
 import { dateCourte } from '../../lib/format'
 import { decalerJour, jourLocal } from '../../lib/jours'
 import type { Ton } from '../../components/ui/Badge'
@@ -52,25 +53,28 @@ export default function ProgressionPage() {
 
   const groupes = useMemo(() => {
     const toutes = situerToutes((snapshot?.seances ?? []).filter(s => s.date === date), maintenant)
-    const passee = (s: SeanceSituee) => s.moment === 'passee' || (s.moment === 'autre_jour' && s.minutesAvant < 0)
-    const aReprendre = (s: SeanceSituee) =>
-      passee(s) && ['À terminer', 'Reporté', 'Non réalisé'].includes(s.statut)
+    // Regroupe les cours simultanés (co-enseignés) en un seul bloc.
+    const blocs = grouperSimultanees(toutes)
+    const rep = (g: Groupe<SeanceSituee>) => g.vedette
+    const passee = (g: Groupe<SeanceSituee>) => rep(g).moment === 'passee' || (rep(g).moment === 'autre_jour' && rep(g).minutesAvant < 0)
+    // À clôturer / à reprendre : vrai si l'une des classes du bloc l'est.
+    const aCloturer = (g: Groupe<SeanceSituee>) => g.membres.some((s) => s.aCloturer)
+    const aReprendre = (g: Groupe<SeanceSituee>) =>
+      passee(g) && g.membres.some((s) => ['À terminer', 'Reporté', 'Non réalisé'].includes(s.statut))
 
     return {
-      aCloturer: toutes.filter((s) => s.aCloturer),
-      aReprendre: toutes.filter(aReprendre),
-      maintenant: toutes.filter((s) => s.moment === 'en_cours' || s.moment === 'imminente'),
-      suite: toutes.filter(
-        (s) =>
-          !s.aCloturer &&
-          !aReprendre(s) &&
-          s.moment !== 'en_cours' &&
-          s.moment !== 'imminente' &&
-          !passee(s),
+      aCloturer: blocs.filter(aCloturer),
+      aReprendre: blocs.filter((g) => !aCloturer(g) && aReprendre(g)),
+      maintenant: blocs.filter((g) => rep(g).moment === 'en_cours' || rep(g).moment === 'imminente'),
+      suite: blocs.filter(
+        (g) =>
+          !aCloturer(g) &&
+          !aReprendre(g) &&
+          rep(g).moment !== 'en_cours' &&
+          rep(g).moment !== 'imminente' &&
+          !passee(g),
       ),
-      faites: toutes.filter(
-        (s) => passee(s) && !s.aCloturer && !aReprendre(s),
-      ),
+      faites: blocs.filter((g) => passee(g) && !aCloturer(g) && !aReprendre(g)),
     }
   }, [snapshot, maintenant, date])
 
@@ -117,7 +121,7 @@ export default function ProgressionPage() {
           titre="À clôturer"
           accent="attention"
           compte={groupes.aCloturer.length}
-          seances={groupes.aCloturer}
+          groupes={groupes.aCloturer}
           ouverte={ouverte}
           setOuverte={setOuverte}
         />
@@ -127,7 +131,7 @@ export default function ProgressionPage() {
         <Bloc
           titre="À reprendre"
           compte={groupes.aReprendre.length}
-          seances={groupes.aReprendre}
+          groupes={groupes.aReprendre}
           ouverte={ouverte}
           setOuverte={setOuverte}
         />
@@ -138,7 +142,7 @@ export default function ProgressionPage() {
           titre="Maintenant"
           accent="live"
           compte={groupes.maintenant.length}
-          seances={groupes.maintenant}
+          groupes={groupes.maintenant}
           ouverte={ouverte}
           setOuverte={setOuverte}
         />
@@ -148,7 +152,7 @@ export default function ProgressionPage() {
         <Bloc
           titre="La suite"
           compte={groupes.suite.length}
-          seances={groupes.suite}
+          groupes={groupes.suite}
           ouverte={ouverte}
           setOuverte={setOuverte}
         />
@@ -158,7 +162,7 @@ export default function ProgressionPage() {
         <Bloc
           titre="Déjà passées"
           compte={groupes.faites.length}
-          seances={groupes.faites}
+          groupes={groupes.faites}
           ouverte={ouverte}
           setOuverte={setOuverte}
         />
@@ -171,14 +175,14 @@ function Bloc({
   titre,
   accent = null,
   compte,
-  seances,
+  groupes,
   ouverte,
   setOuverte,
 }: {
   titre: string
   accent?: 'live' | 'attention' | null
   compte: number
-  seances: SeanceSituee[]
+  groupes: Groupe<SeanceSituee>[]
   ouverte: string | null
   setOuverte: (id: string | null) => void
 }) {
@@ -189,46 +193,51 @@ function Bloc({
       padding={false}
       action={<Badge ton={accent ?? 'neutre'}>{compte}</Badge>}
     >
-      {seances.map((s) => (
-        <div key={s.id}>
-          <button
-            type="button"
-            className={`${styles.ligne} ${ouverte === s.id ? styles.ligneOuverte : ''}`}
-            onClick={() => setOuverte(ouverte === s.id ? null : s.id)}
-            aria-expanded={ouverte === s.id}
-          >
-            <span className={styles.gauche}>
-              <span className={styles.horaire}>{s.debut || '—'}</span>
-              <span className={styles.jour}>{dateCourte(s.date)}</span>
-            </span>
-            <span className={styles.texte}>
-              <span className={styles.classe}>{s.classeNom}</span>
-              <span className={styles.detail}>
-                {[s.moduleLabel || s.module, s.seance, s.sequenceLabel, s.objectif]
-                  .filter(Boolean)
-                  .join(' · ') || 'Séance'}
+      {groupes.map((g) => {
+        const v = g.vedette
+        const absents = g.membres.reduce((n, s) => n + s.absents.length, 0)
+        const memeStatut = g.membres.every((s) => s.statut === v.statut)
+        return (
+          <div key={g.id}>
+            <button
+              type="button"
+              className={`${styles.ligne} ${ouverte === g.id ? styles.ligneOuverte : ''}`}
+              onClick={() => setOuverte(ouverte === g.id ? null : g.id)}
+              aria-expanded={ouverte === g.id}
+            >
+              <span className={styles.gauche}>
+                <span className={styles.horaire}>{v.debut || '—'}</span>
+                <span className={styles.jour}>{dateCourte(v.date)}</span>
               </span>
-              {s.moment !== 'autre_jour' && s.moment !== 'passee' && (
-                <span className={styles.quand}>{quand(s)}</span>
-              )}
-            </span>
-            <span className={styles.badges}>
-              {s.absents.length > 0 && (
-                <Badge ton="danger">{s.absents.length} abs.</Badge>
-              )}
-              <Badge ton={TONS[s.statut]}>{s.statut}</Badge>
-            </span>
-          </button>
-          {ouverte === s.id && <Panneau seance={s} />}
-        </div>
-      ))}
+              <span className={styles.texte}>
+                <span className={styles.classe}>{g.classesLabel}</span>
+                <span className={styles.detail}>
+                  {[v.moduleLabel || v.module, v.seance, v.sequenceLabel, v.objectif]
+                    .filter(Boolean)
+                    .join(' · ') || 'Séance'}
+                </span>
+                {v.moment !== 'autre_jour' && v.moment !== 'passee' && (
+                  <span className={styles.quand}>{quand(v)}</span>
+                )}
+              </span>
+              <span className={styles.badges}>
+                {absents > 0 && <Badge ton="danger">{absents} abs.</Badge>}
+                <Badge ton={TONS[v.statut]}>{memeStatut ? v.statut : 'Statuts mixtes'}</Badge>
+              </span>
+            </button>
+            {ouverte === g.id && <Panneau groupe={g} />}
+          </div>
+        )
+      })}
     </Card>
   )
 }
 
-function Panneau({ seance }: { seance: SeanceSituee }) {
+function Panneau({ groupe }: { groupe: Groupe<SeanceSituee> }) {
   const { envoyer, status, snapshot, commandes } = useBridge()
-  const [memo, setMemo] = useState(seance.memo)
+  const membres = groupe.membres
+  const vedette = groupe.vedette
+  const [memo, setMemo] = useState(vedette.memo)
   const [envoiMemo, setEnvoiMemo] = useState(false)
   const [memoCommande, setMemoCommande] = useState<string | null>(null)
   const resultat = commandes.find(c => c.id === memoCommande)
@@ -237,19 +246,24 @@ function Panneau({ seance }: { seance: SeanceSituee }) {
   }, [resultat])
   const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
 
-  // Le mémo enregistré revient par l'instantané republié : quand seance.memo
-  // rattrape la valeur tapée, on lève l'état « en cours d'envoi ».
   useEffect(() => {
-    if (memo === seance.memo) setEnvoiMemo(false)
-  }, [seance.memo, memo])
+    if (memo === vedette.memo) setEnvoiMemo(false)
+  }, [vedette.memo, memo])
 
-  const memoModifie = memo !== seance.memo
+  const memoModifie = memo !== vedette.memo
   const memoEnregistre = !memoModifie && memo.trim() !== ''
+  const remiseCommune = membres.every((m) => m.remise === vedette.remise) ? vedette.remise : ''
 
   return (
     <div className={styles.panneau}>
+      {membres.length > 1 && (
+        <p className={styles.note}>
+          🧩 Cours co-enseigné — un seul geste s’applique aux {membres.length} classes : {groupe.classesLabel}.
+        </p>
+      )}
+
       <p className={styles.section}>Statut</p>
-      <StatutRapide seance={seance} />
+      <StatutRapide membres={membres} />
       <p className={styles.note}>
         « À terminer », « Reporté » et « Non réalisé » enregistrent le statut ; le placement du
         rattrapage se règle ensuite sur l’ordinateur. Pour une séance qui se poursuit, notez où
@@ -262,9 +276,9 @@ function Panneau({ seance }: { seance: SeanceSituee }) {
           <Button
             key={r.valeur}
             taille="sm"
-            variante={seance.remise === r.valeur ? 'principal' : 'doux'}
+            variante={remiseCommune === r.valeur ? 'principal' : 'doux'}
             disabled={!dispo}
-            onClick={() => envoyer('seance.remise', { seanceId: seance.id, remise: r.valeur })}
+            onClick={() => membres.forEach((m) => envoyer('seance.remise', { seanceId: m.id, remise: r.valeur }))}
           >
             {r.libelle}
           </Button>
@@ -272,13 +286,18 @@ function Panneau({ seance }: { seance: SeanceSituee }) {
       </div>
 
       <p className={styles.section}>Absents (codes)</p>
-      <Absents seance={seance} />
+      <Absents membres={membres} />
 
       <p className={styles.section}>Besoins &amp; aménagements</p>
-      <Besoins seance={seance} />
+      <Besoins membres={membres} />
 
       <p className={styles.section}>À rattraper dans la classe</p>
-      <ARattraper classeId={seance.classeId} />
+      {membres.map((m) => (
+        <div key={m.id}>
+          {membres.length > 1 && <p className={styles.note}>{m.classeNom}</p>}
+          <ARattraper classeId={m.classeId} />
+        </div>
+      ))}
 
       <p className={styles.section}>Mémo de reprise</p>
       <textarea
@@ -295,7 +314,8 @@ function Panneau({ seance }: { seance: SeanceSituee }) {
         disabled={!dispo || !memoModifie || envoiMemo}
         onClick={() => {
           setEnvoiMemo(true)
-          setMemoCommande(envoyer('seance.memo', { seanceId: seance.id, memo }).id)
+          const ids = membres.map((m) => envoyer('seance.memo', { seanceId: m.id, memo }).id)
+          setMemoCommande(ids[0] ?? null)
         }}
       >
         {envoiMemo
@@ -307,7 +327,7 @@ function Panneau({ seance }: { seance: SeanceSituee }) {
 
       {resultat && ['echouee', 'sans_confirmation'].includes(resultat.statut) && <p role="alert">{resultat.erreur || 'Enregistrement non confirmé. Ton texte reste dans le champ.'}</p>}
 
-      {seance.salle && <p className={styles.salle}>Salle {seance.salle}</p>}
+      {vedette.salle && <p className={styles.salle}>Salle {vedette.salle}</p>}
     </div>
   )
 }

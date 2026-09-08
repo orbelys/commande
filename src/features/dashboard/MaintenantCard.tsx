@@ -9,6 +9,7 @@ import { useBridge } from '../../hooks/useBridge'
 import { useHorloge } from '../../hooks/useHorloge'
 import { useProjection } from '../../hooks/useProjection'
 import { quand, situerToutes } from '../../lib/seances'
+import { grouperSimultanees } from '../../lib/groupes'
 import styles from './MaintenantCard.module.css'
 
 /**
@@ -22,9 +23,12 @@ export default function MaintenantCard() {
   const { projection, disponible, etapeLabel, progressionPct } = useProjection()
 
   const seances = situerToutes(snapshot?.seances ?? [], maintenant)
-  const enCours = seances.find((s) => s.moment === 'en_cours')
-  const imminente = seances.find((s) => s.moment === 'imminente')
-  const vedette = enCours ?? imminente ?? null
+  // Regroupe les cours simultanés (co-enseignés) en un seul bloc.
+  const blocs = grouperSimultanees(seances)
+  const enCours = blocs.find((g) => g.vedette.moment === 'en_cours')
+  const imminente = blocs.find((g) => g.vedette.moment === 'imminente')
+  const bloc = enCours ?? imminente ?? null
+  const vedette = bloc?.vedette ?? null
 
   // Un cours est projeté : la télécommande passe devant tout le reste.
   if (projection) {
@@ -85,6 +89,8 @@ export default function MaintenantCard() {
   }
 
   const direct = vedette.moment === 'en_cours'
+  const membres = bloc?.membres ?? [vedette]
+  const classesLabel = bloc?.classesLabel ?? vedette.classeNom
   return (
     <Card
       titre={direct ? 'En cours' : 'Prochain cours'}
@@ -97,7 +103,7 @@ export default function MaintenantCard() {
         {vedette.debut}
         {vedette.fin ? ` – ${vedette.fin}` : ''}
       </p>
-      <p className={styles.titre}>{vedette.classeNom}</p>
+      <p className={styles.titre}>{classesLabel}</p>
       <p className={styles.meta}>
         {[vedette.moduleLabel || vedette.module, vedette.seance, vedette.salle && `salle ${vedette.salle}`]
           .filter(Boolean)
@@ -107,13 +113,15 @@ export default function MaintenantCard() {
       {vedette.memo && <p className={styles.memo}>Reprise : {vedette.memo}</p>}
 
       <div className={styles.actions}>
-        <StatutRapide seance={vedette} compact />
+        <StatutRapide membres={membres} compact />
       </div>
 
-      <ARattraper classeId={vedette.classeId} />
+      {membres.map((m) => (
+        <ARattraper key={m.id} classeId={m.classeId} />
+      ))}
 
       <p className={styles.section}>Besoins &amp; aménagements</p>
-      <Besoins seance={vedette} />
+      <Besoins membres={membres} />
 
       <Link to="/progression" className={styles.lien}>
         Pointer les absents →

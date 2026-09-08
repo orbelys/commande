@@ -6,26 +6,54 @@ import styles from './Absents.module.css'
 
 /**
  * Pointage des absents par code — jamais par nom.
- * Ce sont les mêmes codes que sur les documents distribués : il reste deux
- * copies dans la main, on touche les deux codes, c'est réglé.
- *
- * Un absent entre dans la dette de sa classe : la prochaine séance rappellera
- * qu'il n'a pas eu son support.
+ * Cours co-enseigné : on reçoit plusieurs membres (B1 AGORA 1 + 2). La liste
+ * COMPLÈTE des codes des deux classes apparaît ; chaque code est enregistré
+ * dans la séance de SA classe (une commande par classe).
  */
-export default function Absents({ seance }: { seance: Seance }) {
+export default function Absents({ membres }: { membres: Seance[] }) {
   const { snapshot, envoyer, status } = useBridge()
   const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
-  const classe = snapshot?.classes.find((c) => c.id === seance.classeId)
-  const [brouillon, setBrouillon] = useState<string[] | null>(null)
+  const multi = membres.length > 1
 
-  const codes = classe?.codes ?? []
-  const choisis = brouillon ?? seance.absents
-  const modifie = useMemo(
-    () => brouillon !== null && brouillon.join(',') !== seance.absents.join(','),
-    [brouillon, seance.absents],
+  // { seanceId → { classeNom, codes[], absentsInitiaux[] } }
+  const blocs = useMemo(
+    () =>
+      membres.map((m) => {
+        const classe = snapshot?.classes.find((c) => c.id === m.classeId)
+        return { seanceId: m.id, classeNom: m.classeNom, codes: classe?.codes ?? [], initiaux: m.absents }
+      }),
+    [membres, snapshot],
   )
 
-  if (codes.length === 0) {
+  // brouillon par séance : null tant qu'on n'a pas touché cette classe
+  const [brouillons, setBrouillons] = useState<Record<string, string[] | null>>({})
+  const choisisDe = (seanceId: string, initiaux: string[]) => brouillons[seanceId] ?? initiaux
+
+  const modifie = useMemo(
+    () => blocs.some((b) => { const br = brouillons[b.seanceId]; return br != null && br.join(',') !== b.initiaux.join(',') }),
+    [brouillons, blocs],
+  )
+  const totalCodes = blocs.reduce((n, b) => n + b.codes.length, 0)
+
+  function basculer(seanceId: string, initiaux: string[], code: string) {
+    setBrouillons((prec) => {
+      const base = prec[seanceId] ?? initiaux
+      const suivant = base.includes(code) ? base.filter((c) => c !== code) : [...base, code]
+      return { ...prec, [seanceId]: suivant }
+    })
+  }
+
+  function enregistrer() {
+    blocs.forEach((b) => {
+      const br = brouillons[b.seanceId]
+      if (br != null && br.join(',') !== b.initiaux.join(',')) {
+        envoyer('seance.absents', { seanceId: b.seanceId, codes: br.join(',') })
+      }
+    })
+    setBrouillons({})
+  }
+
+  if (totalCodes === 0) {
     return (
       <p className={styles.absent}>
         Aucun code élève publié pour cette classe. Les codes viennent du fichier
@@ -34,54 +62,49 @@ export default function Absents({ seance }: { seance: Seance }) {
     )
   }
 
-  /* Mise à jour fonctionnelle : deux touches rapprochées sont regroupées par
-     React, et un calcul fait sur une copie périmée perdait la première. */
-  function basculer(code: string) {
-    setBrouillon((precedent) => {
-      const base = precedent ?? seance.absents
-      return base.includes(code) ? base.filter((c) => c !== code) : [...base, code]
-    })
-  }
+  const totalAbsents = blocs.reduce((n, b) => n + choisisDe(b.seanceId, b.initiaux).length, 0)
 
   return (
     <>
-      <div className={styles.grille}>
-        {codes.map((code) => {
-          const actif = choisis.includes(code)
-          return (
-            <button
-              key={code}
-              type="button"
-              className={`${styles.code} ${actif ? styles.absentActif : ''}`}
-              onClick={() => basculer(code)}
-              disabled={!dispo}
-              aria-pressed={actif}
-            >
-              {code}
-            </button>
-          )
-        })}
-      </div>
+      {blocs.map((b) => {
+        const choisis = choisisDe(b.seanceId, b.initiaux)
+        if (b.codes.length === 0) return null
+        return (
+          <div key={b.seanceId} className={multi ? styles.blocClasse : undefined}>
+            {multi && <p className={styles.classeLabel}>{b.classeNom}</p>}
+            <div className={styles.grille}>
+              {b.codes.map((code) => {
+                const actif = choisis.includes(code)
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    className={`${styles.code} ${actif ? styles.absentActif : ''}`}
+                    onClick={() => basculer(b.seanceId, b.initiaux, code)}
+                    disabled={!dispo}
+                    aria-pressed={actif}
+                  >
+                    {code}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
 
       <p className={styles.compte}>
-        {choisis.length === 0
+        {totalAbsents === 0
           ? 'Personne de coché — tout le monde a eu son support.'
-          : `${choisis.length} absent${choisis.length > 1 ? 's' : ''} : ${choisis.join(', ')}`}
+          : `${totalAbsents} absent${totalAbsents > 1 ? 's' : ''}${multi ? ' (les deux classes)' : ''}.`}
       </p>
 
       {modifie && (
         <div className={styles.duo}>
-          <Button variante="doux" onClick={() => setBrouillon(null)}>
+          <Button variante="doux" onClick={() => setBrouillons({})}>
             Annuler
           </Button>
-          <Button
-            variante="principal"
-            disabled={!dispo}
-            onClick={() => {
-              envoyer('seance.absents', { seanceId: seance.id, codes: choisis.join(',') })
-              setBrouillon(null)
-            }}
-          >
+          <Button variante="principal" disabled={!dispo} onClick={enregistrer}>
             Enregistrer
           </Button>
         </div>

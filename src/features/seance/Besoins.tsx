@@ -57,12 +57,22 @@ type Relief = { niveau: number; aides: string[]; amenagements: string[]; apres: 
    pas au rechargement de l'app). Additionne par cours et montre « déjà noté ». */
 const RETENUS = new Map<string, Record<string, Relief>>()
 
-export default function Besoins({ seance }: { seance: Seance }) {
+export default function Besoins({ membres }: { membres: Seance[] }) {
   const { snapshot, envoyer, status } = useBridge()
   const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
-  const classe = snapshot?.classes.find((c) => c.id === seance.classeId)
-  const codes = classe?.codes ?? []
-  const cle = (code: string) => `${seance.id}|${code}`
+  const multi = membres.length > 1
+
+  // Liste COMBINÉE des codes des classes co-enseignées ; chaque code sait à
+  // quelle classe (donc quelle séance) il appartient.
+  const parClasse = membres.map((m) => ({
+    membre: m,
+    classeNom: m.classeNom,
+    codes: (snapshot?.classes.find((c) => c.id === m.classeId)?.codes ?? []),
+  }))
+  const membreOf: Record<string, Seance> = {}
+  parClasse.forEach((b) => b.codes.forEach((c) => { membreOf[c] = b.membre }))
+  const codes = parClasse.flatMap((b) => b.codes)
+  const cle = (code: string) => `${(membreOf[code] || membres[0]).id}|${code}`
 
   const [actif, setActif] = useState<string | null>(null)
   const [sheet, setSheet] = useState<{ di: number; item: string } | null>(null)
@@ -96,14 +106,15 @@ export default function Besoins({ seance }: { seance: Seance }) {
   function enregistrerObs() {
     if (!actif || !sheet || niveau == null) return
     const dom = DOMAINES[sheet.di]
+    const membre = membreOf[actif] || membres[0]   // la classe à laquelle ce code appartient
     const rec = { ...savedOf(actif) }
     rec[`${sheet.di}|${sheet.item}`] = { niveau, aides: [...aides], amenagements: [...amen], apres: apres ?? '', note: note.trim() }
     RETENUS.set(cle(actif), rec)
     envoyer('eleve.besoins', {
-      seanceId: seance.id,
-      classeId: seance.classeId,
+      seanceId: membre.id,
+      classeId: membre.classeId,
       code: actif,
-      date: seance.date,
+      date: membre.date,
       besoins: JSON.stringify([{ domaine: dom.t, item: sheet.item, niveau, aides: [...aides], apres: apres ?? '' }]),
       amenagements: JSON.stringify([...amen]),
       note: note.trim(),
@@ -123,26 +134,33 @@ export default function Besoins({ seance }: { seance: Seance }) {
 
   const saved = actif ? savedOf(actif) : {}
 
+  const renderCode = (code: string) => {
+    const n = compteCode(code)
+    return (
+      <button
+        key={code}
+        type="button"
+        className={`${styles.code} ${actif === code ? styles.codeActif : ''} ${n > 0 ? styles.codeNote : ''}`}
+        onClick={() => setActif(actif === code ? null : code)}
+        disabled={!dispo}
+        aria-pressed={actif === code}
+      >
+        {code}
+        {n > 0 && <span className={styles.pastille}>{n}</span>}
+      </button>
+    )
+  }
+
   return (
     <>
-      <div className={styles.grille}>
-        {codes.map((code) => {
-          const n = compteCode(code)
-          return (
-            <button
-              key={code}
-              type="button"
-              className={`${styles.code} ${actif === code ? styles.codeActif : ''} ${n > 0 ? styles.codeNote : ''}`}
-              onClick={() => setActif(actif === code ? null : code)}
-              disabled={!dispo}
-              aria-pressed={actif === code}
-            >
-              {code}
-              {n > 0 && <span className={styles.pastille}>{n}</span>}
-            </button>
-          )
-        })}
-      </div>
+      {parClasse.map((b) =>
+        b.codes.length === 0 ? null : (
+          <div key={b.membre.id} className={multi ? styles.blocClasse : undefined}>
+            {multi && <p className={styles.classeLabel}>{b.classeNom}</p>}
+            <div className={styles.grille}>{b.codes.map(renderCode)}</div>
+          </div>
+        ),
+      )}
 
       {elevesNotes > 0 && !actif && (
         <p className={styles.rien}>
@@ -156,7 +174,10 @@ export default function Besoins({ seance }: { seance: Seance }) {
           <div className={styles.tete}>
             <span className={styles.code}>{actif}</span>
             <span className={styles.cl}>
-              {seance.classeNom} · {[seance.moduleLabel || seance.module, seance.seance].filter(Boolean).join(' · ')}
+              {(() => {
+                const m = membreOf[actif] || membres[0]
+                return `${m.classeNom} · ${[m.moduleLabel || m.module, m.seance].filter(Boolean).join(' · ')}`
+              })()}
             </span>
           </div>
           <div className={styles.rgpd}>🔒 Code seul — aucun nom, aucune donnée médicale. Note ce que tu observes, ça n’est qu’un relevé.</div>

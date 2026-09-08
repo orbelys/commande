@@ -45,6 +45,16 @@
   margin-top: var(--sp-3);
 }
 
+.blocClasse + .blocClasse { margin-top: var(--sp-3); }
+.classeLabel {
+  margin: 0 0 var(--sp-2);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-text-faible);
+}
+
 .absent {
   font-size: var(--fs-sm);
   color: var(--c-text-muted);

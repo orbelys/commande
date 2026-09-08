@@ -30,21 +30,31 @@ function variante(actif: boolean, st: StatutSeance): 'succes' | 'principal' | 'd
  * ainsi le téléphone suit exactement ce que gère l'ordinateur.
  */
 export default function StatutRapide({
-  seance,
+  membres,
   compact = false,
 }: {
-  seance: Seance
+  /** Une classe = 1 membre ; cours co-enseigné = plusieurs membres. */
+  membres: Seance[]
   compact?: boolean
 }) {
   const { envoyer, status, snapshot } = useBridge()
   const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
   const statuts = snapshot?.statuts?.length ? snapshot.statuts : STATUTS_TELEPHONE
 
+  // Statut commun s'il est identique sur toutes les classes du bloc, sinon vide.
+  const premier = membres[0]?.statut
+  const commun = membres.every((m) => m.statut === premier) ? premier : ''
+
+  function poser(st: StatutSeance) {
+    // Un seul geste → on l'applique à toutes les classes co-enseignées.
+    membres.forEach((m) => envoyer('seance.statut', { seanceId: m.id, statut: st }))
+  }
+
   return (
     <div>
       <div className={compact ? styles.choixCompact : styles.choix}>
         {statuts.map((st) => {
-          const actif = seance.statut === st
+          const actif = commun === st
           return (
             <Button
               key={st}
@@ -52,15 +62,16 @@ export default function StatutRapide({
               variante={variante(actif, st)}
               icone={ICONES[st]}
               disabled={!dispo || actif}
-              onClick={() => envoyer('seance.statut', { seanceId: seance.id, statut: st })}
+              onClick={() => poser(st)}
             >
               {st}
             </Button>
           )
         })}
       </div>
-      {!compact && seance.statut && AIDE_STATUT[seance.statut] && (
-        <p className={styles.aide}>{AIDE_STATUT[seance.statut]}</p>
+      {!compact && commun && AIDE_STATUT[commun] && <p className={styles.aide}>{AIDE_STATUT[commun]}</p>}
+      {!compact && !commun && membres.length > 1 && (
+        <p className={styles.aide}>Statuts différents selon la classe — poser un statut les alignera toutes.</p>
       )}
     </div>
   )
