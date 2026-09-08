@@ -15,66 +15,63 @@ import styles from './Besoins.module.css'
  * ne publie rien et ne modifie aucune fiche : il note, c'est tout.
  */
 
-type Domaine = { t: string; ic: string; items: string[] }
+type Domaine = { t: string; d: string; ic: string; items: string[] }
 
+/* Les 8 domaines de l'outil AESH d'observation de l'autonomie — repris à
+   l'identique pour rester cohérent avec ce que l'équipe utilise déjà. */
 const DOMAINES: Domaine[] = [
   {
-    t: 'Relation aux apprentissages',
-    ic: '📚',
+    t: 'Comprendre / consignes',
+    d: 'orale, écrite, reformuler',
+    ic: '💬',
     items: [
-      'Comprendre la consigne',
-      'Lire / déchiffrer',
-      'Vocabulaire de la matière',
-      'Transférer à une situation voisine',
-      'Planifier les étapes',
-      'Se décider / choisir',
-      'Contrôler son travail',
+      'Comprend la consigne orale',
+      'Comprend la consigne écrite',
+      "Reformule ce qu'il faut faire",
+      "Demande de l'aide à bon escient",
     ],
   },
   {
-    t: 'Cognitif — attention & mémoire',
-    ic: '🧠',
-    items: [
-      "Fixer / tenir l'attention",
-      'Mémoriser',
-      "Lenteur d'exécution",
-      'Se repérer dans le temps',
-      'Se repérer dans l’espace',
-      'Organiser son travail',
-    ],
+    t: 'Entrer dans la tâche',
+    d: 'démarrer, oser',
+    ic: '🚀',
+    items: ['Démarre seul', "Attend l'adulte pour commencer", "Sait ce qu'il faut faire", 'Accepte la tâche'],
   },
   {
-    t: 'Psycho-affectif — s’engager',
-    ic: '💪',
-    items: [
-      'Se lancer seul',
-      'Persévérer / ne pas abandonner',
-      "Gérer l'anxiété / la frustration",
-      'Confiance en soi / oser',
-      "Accepter l'erreur",
-    ],
+    t: 'Attention',
+    d: 'tenir, filtrer',
+    ic: '🎯',
+    items: ['Reste concentré', 'Se disperse / décroche', 'Tient dans la durée', 'Gère le bruit ambiant'],
   },
   {
-    t: 'Socio-affectif — cadre & relations',
+    t: 'Organisation / matériel',
+    d: 'préparer, planifier',
+    ic: '🧰',
+    items: ['Prépare son poste / matériel', 'Suit les étapes', 'Gère son temps', 'Range et nettoie'],
+  },
+  {
+    t: 'Réaliser le travail',
+    d: 'faire, contrôler',
+    ic: '🛠️',
+    items: ['Réalise la tâche', 'Gestes techniques (atelier)', 'Contrôle son travail', 'Transfère à une situation voisine'],
+  },
+  {
+    t: 'Sécurité en atelier',
+    d: 'EPI, gestes sûrs',
+    ic: '🦺',
+    items: ['Respecte les consignes de sécurité', 'Porte ses EPI', 'Gestes sûrs sur machine / poste', 'Signale un problème'],
+  },
+  {
+    t: 'Relations / comportement',
+    d: 'cadre, coopérer',
     ic: '🤝',
-    items: [
-      'Respecter les règles',
-      'Relation aux adultes',
-      'Relation aux pairs',
-      'Gérer un conflit',
-      'Accepter les consignes',
-    ],
+    items: ['Respecte le cadre', 'Coopère avec les autres', "Gère la frustration / l'échec", 'Relation aux adultes'],
   },
   {
-    t: 'Sensori-moteur — geste & perception',
-    ic: '✋',
-    items: [
-      'Écriture / graphisme',
-      'Motricité fine (découper, manipuler)',
-      "Vision (se penche, s'approche)",
-      'Audition / bruit',
-      'Fatigabilité / posture',
-    ],
+    t: 'Autonomie globale',
+    d: 'le cœur du bilan',
+    ic: '🧭',
+    items: ['Démarre seul', 'Poursuit sans relance', 'Sollicite à bon escient', 'Termine et vérifie seul'],
   },
 ]
 
@@ -96,26 +93,37 @@ const AMENAGEMENTS: string[] = [
   'Place adaptée (devant, au calme)',
 ]
 
+/* Mémoire de SESSION : ce qui a déjà été relevé, par séance + code. Survit à la
+   fermeture / réouverture de la fiche (pas au rechargement de l'app). Sert à
+   montrer « déjà cliqué » (pastille + cases cochées au retour) et à additionner
+   par cours — comme l'outil AESH d'observation. */
+type Retenu = { b: Set<string>; a: Set<string>; note: string; n: number }
+const RETENUS = new Map<string, Retenu>()
+
 export default function Besoins({ seance }: { seance: Seance }) {
   const { snapshot, envoyer, status } = useBridge()
   const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
   const classe = snapshot?.classes.find((c) => c.id === seance.classeId)
   const codes = classe?.codes ?? []
 
+  const cle = (code: string) => `${seance.id}|${code}`
   const [actif, setActif] = useState<string | null>(null)
   const [besoins, setBesoins] = useState<Set<string>>(new Set())
   const [amenagements, setAmenagements] = useState<Set<string>>(new Set())
   const [note, setNote] = useState('')
-  const [confirme, setConfirme] = useState<string | null>(null)
+  const [, forcer] = useState(0) // rafraîchit les pastilles après un enregistrement
 
   const rien = besoins.size === 0 && amenagements.size === 0 && note.trim() === ''
+  const compteCode = (code: string) => { const r = RETENUS.get(cle(code)); return r ? r.b.size + r.a.size : 0 }
+  const elevesNotes = codes.filter((c) => compteCode(c) > 0).length
+  const dejaRetenu = actif ? RETENUS.get(cle(actif)) : undefined
 
   function ouvrir(code: string) {
+    const r = RETENUS.get(cle(code))
+    setBesoins(new Set(r?.b ?? []))
+    setAmenagements(new Set(r?.a ?? []))
+    setNote(r?.note ?? '')
     setActif(code)
-    setBesoins(new Set())
-    setAmenagements(new Set())
-    setNote('')
-    setConfirme(null)
   }
   function fermer() {
     setActif(null)
@@ -147,7 +155,14 @@ export default function Besoins({ seance }: { seance: Seance }) {
       amenagements: JSON.stringify([...amenagements]),
       note: note.trim(),
     })
-    setConfirme(actif)
+    // mémoire de session : on retient pour montrer « déjà cliqué » et additionner
+    RETENUS.set(cle(actif), {
+      b: new Set(besoins),
+      a: new Set(amenagements),
+      note: note.trim(),
+      n: (RETENUS.get(cle(actif))?.n ?? 0) + 1,
+    })
+    forcer((x) => x + 1)
     setActif(null)
   }
 
@@ -163,22 +178,29 @@ export default function Besoins({ seance }: { seance: Seance }) {
   return (
     <>
       <div className={styles.grille}>
-        {codes.map((code) => (
-          <button
-            key={code}
-            type="button"
-            className={`${styles.code} ${actif === code ? styles.codeActif : ''}`}
-            onClick={() => (actif === code ? fermer() : ouvrir(code))}
-            disabled={!dispo}
-            aria-pressed={actif === code}
-          >
-            {code}
-          </button>
-        ))}
+        {codes.map((code) => {
+          const n = compteCode(code)
+          return (
+            <button
+              key={code}
+              type="button"
+              className={`${styles.code} ${actif === code ? styles.codeActif : ''} ${n > 0 ? styles.codeNote : ''}`}
+              onClick={() => (actif === code ? fermer() : ouvrir(code))}
+              disabled={!dispo}
+              aria-pressed={actif === code}
+            >
+              {code}
+              {n > 0 && <span className={styles.pastille}>{n}</span>}
+            </button>
+          )
+        })}
       </div>
 
-      {confirme && !actif && (
-        <p className={styles.rien}>Relevé envoyé pour {confirme}. Il apparaîtra dans la fiche élève, sur l’ordinateur.</p>
+      {elevesNotes > 0 && !actif && (
+        <p className={styles.rien}>
+          Ce cours : <b>{elevesNotes}</b> élève{elevesNotes > 1 ? 's' : ''} relevé{elevesNotes > 1 ? 's' : ''}. La pastille indique
+          ce qui est déjà noté — touche à nouveau un code pour compléter. Tout s’ajoute dans la fiche élève, sur l’ordinateur.
+        </p>
       )}
 
       {actif && (
@@ -190,6 +212,9 @@ export default function Besoins({ seance }: { seance: Seance }) {
             </span>
           </div>
           <div className={styles.rgpd}>🔒 Code seul — aucun nom, aucune donnée médicale. Note ce que tu observes, ça n’est qu’un relevé.</div>
+          {dejaRetenu && (
+            <p className={styles.deja}>Déjà relevé ce cours ({dejaRetenu.n}×) — les cases cochées sont conservées. Complète, puis enregistre.</p>
+          )}
 
           <div className={styles.slab}>
             <span className={styles.pt} style={{ background: 'var(--c-accent)' }} />

@@ -23,12 +23,44 @@
   transition: transform var(--transition), background-color var(--transition),
     color var(--transition), border-color var(--transition);
 }
+.code { position: relative; }
 .code:active:not(:disabled) { transform: scale(0.94); }
 .code:disabled { opacity: 0.45; }
 .codeActif {
   background: var(--c-accent-soft);
   border-color: var(--c-accent);
   color: var(--c-accent-fort);
+}
+.codeNote {
+  border-color: color-mix(in srgb, var(--c-accent) 45%, var(--c-border));
+  color: var(--c-accent-fort);
+}
+.pastille {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--c-accent);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.deja {
+  margin: var(--sp-2) 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--c-accent-fort);
+  background: var(--c-accent-soft);
+  border-radius: var(--r-sm);
+  padding: 8px 11px;
+  line-height: 1.4;
 }
 
 .absent { font-size: var(--fs-sm); color: var(--c-text-muted); line-height: 1.5; }
