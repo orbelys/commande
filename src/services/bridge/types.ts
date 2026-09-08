@@ -274,6 +274,7 @@ export type CommandType =
   | 'seance.remise'
   | 'seance.memo'
   | 'seance.absents'
+  | 'eleve.besoins'
   | 'classe.rattrape'
   // — actions et notes
   | 'action.creer'

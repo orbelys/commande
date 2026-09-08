@@ -498,6 +498,10 @@
    */
   var CLE_ABSENCES = 'pse-mobile-absences';
   var CLE_RATTRAPAGES = 'pse-mobile-rattrapages';
+  /* Relevés de besoins & aménagements posés depuis le téléphone, par classe puis
+   * par code élève. RESTE LOCAL : jamais republié dans l'instantané (le téléphone
+   * ne rapatrie rien). Lu par la Suite PSE (Classes & élèves) — affichage seul. */
+  var CLE_BESOINS = 'pse-besoins-eleves-v1';
 
   function codesParClasse() {
     var res = safe(function () { return window.studentCodesAPI.readAllSync(); });
@@ -767,6 +771,32 @@
       var codes = String(p.codes || '').split(',').map(function (c) { return c.trim(); })
         .filter(Boolean);
       poserAbsents(String(p.seanceId || ''), codes);
+    },
+    /* Relevé de besoins & aménagements d'un élève. On RANGE, c'est tout :
+     * aucune validation, aucun publipostage, aucune modification de la fiche
+     * élève ni de la progression. La Suite PSE (Classes & élèves) l'affiche. */
+    'eleve.besoins': function (p) {
+      var classeId = String(p.classeId || '');
+      var code = String(p.code || '').trim();
+      var classe = classes().find(function (c) { return c.id === classeId; });
+      if (!classe || classe.codes.indexOf(code) < 0) throw new Error('Code élève inconnu dans cette classe');
+      var besoins = safe(function () { return JSON.parse(p.besoins || '[]'); }) || [];       // [{domaine, item}]
+      var amenagements = safe(function () { return JSON.parse(p.amenagements || '[]'); }) || []; // [string]
+      var note = String(p.note || '').trim();
+      if (!(besoins.length || amenagements.length || note)) return;   // rien à ranger
+      var store = lireJson(CLE_BESOINS) || {};
+      if (!store[classeId]) store[classeId] = {};
+      if (!store[classeId][code]) store[classeId][code] = [];
+      store[classeId][code].push({
+        date: String(p.date || ''),
+        seanceId: String(p.seanceId || ''),
+        besoins: besoins,
+        amenagements: amenagements,
+        note: note,
+        at: new Date().toISOString(),
+        source: 'telephone'
+      });
+      ecrireJson(CLE_BESOINS, store);
     },
     'classe.rattrape': function (p) {
       marquerRattrape(String(p.classeId || ''), String(p.code || ''));

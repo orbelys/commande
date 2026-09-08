@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import EmptyState from '../../components/ui/EmptyState'
 import StatutRapide from '../seance/StatutRapide'
 import Absents from '../seance/Absents'
+import Besoins from '../seance/Besoins'
 import ARattraper from '../seance/ARattraper'
 import { useBridge } from '../../hooks/useBridge'
 import { useHorloge } from '../../hooks/useHorloge'
@@ -272,6 +273,9 @@ function Panneau({ seance }: { seance: SeanceSituee }) {
 
       <p className={styles.section}>Absents (codes)</p>
       <Absents seance={seance} />
+
+      <p className={styles.section}>Besoins &amp; aménagements</p>
+      <Besoins seance={seance} />
 
       <p className={styles.section}>À rattraper dans la classe</p>
       <ARattraper classeId={seance.classeId} />
