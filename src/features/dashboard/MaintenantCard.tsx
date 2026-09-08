@@ -4,6 +4,7 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import StatutRapide from '../seance/StatutRapide'
 import ARattraper from '../seance/ARattraper'
+import Besoins from '../seance/Besoins'
 import { useBridge } from '../../hooks/useBridge'
 import { useHorloge } from '../../hooks/useHorloge'
 import { useProjection } from '../../hooks/useProjection'
@@ -110,6 +111,9 @@ export default function MaintenantCard() {
       </div>
 
       <ARattraper classeId={vedette.classeId} />
+
+      <p className={styles.section}>Besoins &amp; aménagements</p>
+      <Besoins seance={vedette} />
 
       <Link to="/progression" className={styles.lien}>
         Pointer les absents →
