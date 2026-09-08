@@ -1,169 +1,115 @@
-import { useMemo, useState } from 'react'
-import Button from '../../components/ui/Button'
+import { useState } from 'react'
 import { useBridge } from '../../hooks/useBridge'
 import type { Seance } from '../../services/bridge/types'
 import styles from './Besoins.module.css'
 
 /**
- * Relevé des besoins d'un élève — par code, jamais par nom.
- * On touche un code, on coche ce qu'on observe (par domaine) et les
- * aménagements à préparer, on ajoute un commentaire, on enregistre.
+ * Relevé des besoins d'un élève — portage fidèle de l'outil AESH d'observation
+ * de l'autonomie. On touche un observable, on pose le NIVEAU 0→5 (le degré),
+ * l'aide qui a fonctionné, ce qui se passe quand on retire l'aide, un fait
+ * observé, et l'aménagement de support à préparer. Ça s'additionne par cours et
+ * chaque observable garde sa marque « ✓ niveau ». Par code, jamais par nom.
  *
- * Le téléphone n'écrit qu'une commande : rien n'est rapatrié ni affiché en
- * retour ici (aucune donnée sensible ne redescend). La consultation se fait
- * dans la Suite PSE, espace « Classes & élèves ». Ce relevé ne valide rien,
- * ne publie rien et ne modifie aucune fiche : il note, c'est tout.
+ * Le téléphone n'écrit qu'une commande : rien n'est rapatrié ici. La
+ * consultation se fait dans la Suite PSE. Ce relevé ne valide rien, ne publie
+ * rien, ne modifie aucune fiche.
  */
 
 type Domaine = { t: string; d: string; ic: string; items: string[] }
 
-/* Les 8 domaines de l'outil AESH d'observation de l'autonomie — repris à
-   l'identique pour rester cohérent avec ce que l'équipe utilise déjà. */
+/* Les 8 domaines de l'outil AESH — repris à l'identique. */
 const DOMAINES: Domaine[] = [
-  {
-    t: 'Comprendre / consignes',
-    d: 'orale, écrite, reformuler',
-    ic: '💬',
-    items: [
-      'Comprend la consigne orale',
-      'Comprend la consigne écrite',
-      "Reformule ce qu'il faut faire",
-      "Demande de l'aide à bon escient",
-    ],
-  },
-  {
-    t: 'Entrer dans la tâche',
-    d: 'démarrer, oser',
-    ic: '🚀',
-    items: ['Démarre seul', "Attend l'adulte pour commencer", "Sait ce qu'il faut faire", 'Accepte la tâche'],
-  },
-  {
-    t: 'Attention',
-    d: 'tenir, filtrer',
-    ic: '🎯',
-    items: ['Reste concentré', 'Se disperse / décroche', 'Tient dans la durée', 'Gère le bruit ambiant'],
-  },
-  {
-    t: 'Organisation / matériel',
-    d: 'préparer, planifier',
-    ic: '🧰',
-    items: ['Prépare son poste / matériel', 'Suit les étapes', 'Gère son temps', 'Range et nettoie'],
-  },
-  {
-    t: 'Réaliser le travail',
-    d: 'faire, contrôler',
-    ic: '🛠️',
-    items: ['Réalise la tâche', 'Gestes techniques (atelier)', 'Contrôle son travail', 'Transfère à une situation voisine'],
-  },
-  {
-    t: 'Sécurité en atelier',
-    d: 'EPI, gestes sûrs',
-    ic: '🦺',
-    items: ['Respecte les consignes de sécurité', 'Porte ses EPI', 'Gestes sûrs sur machine / poste', 'Signale un problème'],
-  },
-  {
-    t: 'Relations / comportement',
-    d: 'cadre, coopérer',
-    ic: '🤝',
-    items: ['Respecte le cadre', 'Coopère avec les autres', "Gère la frustration / l'échec", 'Relation aux adultes'],
-  },
-  {
-    t: 'Autonomie globale',
-    d: 'le cœur du bilan',
-    ic: '🧭',
-    items: ['Démarre seul', 'Poursuit sans relance', 'Sollicite à bon escient', 'Termine et vérifie seul'],
-  },
+  { t: 'Comprendre / consignes', d: 'orale, écrite, reformuler', ic: '💬',
+    items: ['Comprend la consigne orale', 'Comprend la consigne écrite', "Reformule ce qu'il faut faire", "Demande de l'aide à bon escient"] },
+  { t: 'Entrer dans la tâche', d: 'démarrer, oser', ic: '🚀',
+    items: ['Démarre seul', "Attend l'adulte pour commencer", "Sait ce qu'il faut faire", 'Accepte la tâche'] },
+  { t: 'Attention', d: 'tenir, filtrer', ic: '🎯',
+    items: ['Reste concentré', 'Se disperse / décroche', 'Tient dans la durée', 'Gère le bruit ambiant'] },
+  { t: 'Organisation / matériel', d: 'préparer, planifier', ic: '🧰',
+    items: ['Prépare son poste / matériel', 'Suit les étapes', 'Gère son temps', 'Range et nettoie'] },
+  { t: 'Réaliser le travail', d: 'faire, contrôler', ic: '🛠️',
+    items: ['Réalise la tâche', 'Gestes techniques (atelier)', 'Contrôle son travail', 'Transfère à une situation voisine'] },
+  { t: 'Sécurité en atelier', d: 'EPI, gestes sûrs', ic: '🦺',
+    items: ['Respecte les consignes de sécurité', 'Porte ses EPI', 'Gestes sûrs sur machine / poste', 'Signale un problème'] },
+  { t: 'Relations / comportement', d: 'cadre, coopérer', ic: '🤝',
+    items: ['Respecte le cadre', 'Coopère avec les autres', "Gère la frustration / l'échec", 'Relation aux adultes'] },
+  { t: 'Autonomie globale', d: 'le cœur du bilan', ic: '🧭',
+    items: ['Démarre seul', 'Poursuit sans relance', 'Sollicite à bon escient', 'Termine et vérifie seul'] },
 ]
 
-const AMENAGEMENTS: string[] = [
-  'Texte à trous',
-  'Interlignes agrandis',
-  'Police adaptée',
-  'Support allégé',
-  'Une consigne à la fois',
-  'Consignes fractionnées',
-  'Consigne lue à voix haute',
-  'Reformuler / exemple',
-  'Plus de temps',
-  'Cache / fenêtre de lecture',
-  'Couleur / surlignage',
-  'Plan de travail visuel',
-  'Aide d’un pair',
-  'Valoriser / encourager',
-  'Place adaptée (devant, au calme)',
+/* Le NIVEAU (degré) — échelle AESH 0→5. */
+const SCALE = [
+  { n: 0, l: 'autonome', x: 'Réalise seul, sans intervention.' },
+  { n: 1, l: 'un rappel', x: 'Un rappel, un encouragement ou une vérification suffit.' },
+  { n: 2, l: 'démarrage', x: 'Aide pour comprendre / démarrer, puis poursuit seul.' },
+  { n: 3, l: 'ponctuelle', x: "Quelques interventions pendant l'activité." },
+  { n: 4, l: 'régulière', x: "L'adulte doit intervenir fréquemment." },
+  { n: 5, l: 'continu', x: 'Ne peut pas réaliser sans présence rapprochée.' },
 ]
+const AIDES = ['Reformuler', 'Montrer un exemple', 'Découper en étapes', 'Support visuel', 'Lire la consigne', 'Démarrer avec lui', 'Plus de temps', 'Aide d’un pair', 'Geste guidé']
+const APRES = ['Poursuit seul', 'Poursuit un temps', 'Redemande de l’aide', 'S’arrête', 'Abandonne']
+const AMENAGEMENTS = ['Texte à trous', 'Interlignes agrandis', 'Police adaptée', 'Support allégé', 'Une consigne à la fois', 'Consignes fractionnées', 'Consigne lue à voix haute', 'Reformuler / exemple', 'Plus de temps', 'Cache / fenêtre de lecture', 'Couleur / surlignage', 'Plan de travail visuel', 'Aide d’un pair', 'Valoriser / encourager', 'Place adaptée (devant, au calme)']
+/* Couleurs du degré, vert → rouge (mêmes teintes que l'échelle AESH). */
+const AC = ['#1c9c62', '#5aa551', '#a79a34', '#d68a28', '#d5622a', '#bf3a33']
 
-/* Mémoire de SESSION : ce qui a déjà été relevé, par séance + code. Survit à la
-   fermeture / réouverture de la fiche (pas au rechargement de l'app). Sert à
-   montrer « déjà cliqué » (pastille + cases cochées au retour) et à additionner
-   par cours — comme l'outil AESH d'observation. */
-type Retenu = { b: Set<string>; a: Set<string>; note: string; n: number }
-const RETENUS = new Map<string, Retenu>()
+type Relief = { niveau: number; aides: string[]; amenagements: string[]; apres: string; note: string }
+/* Mémoire de SESSION, par séance + code (survit à la fermeture de la fiche,
+   pas au rechargement de l'app). Additionne par cours et montre « déjà noté ». */
+const RETENUS = new Map<string, Record<string, Relief>>()
 
 export default function Besoins({ seance }: { seance: Seance }) {
   const { snapshot, envoyer, status } = useBridge()
   const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
   const classe = snapshot?.classes.find((c) => c.id === seance.classeId)
   const codes = classe?.codes ?? []
-
   const cle = (code: string) => `${seance.id}|${code}`
+
   const [actif, setActif] = useState<string | null>(null)
-  const [besoins, setBesoins] = useState<Set<string>>(new Set())
-  const [amenagements, setAmenagements] = useState<Set<string>>(new Set())
+  const [sheet, setSheet] = useState<{ di: number; item: string } | null>(null)
+  const [niveau, setNiveau] = useState<number | null>(null)
+  const [aides, setAides] = useState<Set<string>>(new Set())
+  const [amen, setAmen] = useState<Set<string>>(new Set())
+  const [apres, setApres] = useState<string | null>(null)
   const [note, setNote] = useState('')
-  const [, forcer] = useState(0) // rafraîchit les pastilles après un enregistrement
+  const [, forcer] = useState(0)
 
-  const rien = besoins.size === 0 && amenagements.size === 0 && note.trim() === ''
-  const compteCode = (code: string) => { const r = RETENUS.get(cle(code)); return r ? r.b.size + r.a.size : 0 }
+  const savedOf = (code: string): Record<string, Relief> => RETENUS.get(cle(code)) ?? {}
+  const compteCode = (code: string) => Object.keys(savedOf(code)).length
   const elevesNotes = codes.filter((c) => compteCode(c) > 0).length
-  const dejaRetenu = actif ? RETENUS.get(cle(actif)) : undefined
 
-  function ouvrir(code: string) {
-    const r = RETENUS.get(cle(code))
-    setBesoins(new Set(r?.b ?? []))
-    setAmenagements(new Set(r?.a ?? []))
-    setNote(r?.note ?? '')
-    setActif(code)
+  function ouvrirSheet(di: number, item: string) {
+    const prev = actif ? savedOf(actif)[`${di}|${item}`] : undefined
+    setNiveau(prev ? prev.niveau : null)
+    setAides(new Set(prev?.aides ?? []))
+    setAmen(new Set(prev?.amenagements ?? []))
+    setApres(prev?.apres ?? null)
+    setNote(prev?.note ?? '')
+    setSheet({ di, item })
   }
-  function fermer() {
-    setActif(null)
-  }
-  function basculer(set: Set<string>, cle: string, maj: (s: Set<string>) => void) {
-    const suivant = new Set(set)
-    if (suivant.has(cle)) suivant.delete(cle)
-    else suivant.add(cle)
-    maj(suivant)
+  function toggle(set: Set<string>, v: string, maj: (s: Set<string>) => void) {
+    const n = new Set(set)
+    if (n.has(v)) n.delete(v)
+    else n.add(v)
+    maj(n)
   }
 
-  const parDomaine = useMemo(
-    () => DOMAINES.map((_, i) => [...besoins].filter((k) => k.startsWith(`${i}|`)).length),
-    [besoins],
-  )
-
-  function enregistrer() {
-    if (!actif || rien) return
-    const liste = [...besoins].map((cle) => {
-      const [di, ...reste] = cle.split('|')
-      return { domaine: DOMAINES[Number(di)]?.t ?? '', item: reste.join('|') }
-    })
+  function enregistrerObs() {
+    if (!actif || !sheet || niveau == null) return
+    const dom = DOMAINES[sheet.di]
+    const rec = { ...savedOf(actif) }
+    rec[`${sheet.di}|${sheet.item}`] = { niveau, aides: [...aides], amenagements: [...amen], apres: apres ?? '', note: note.trim() }
+    RETENUS.set(cle(actif), rec)
     envoyer('eleve.besoins', {
       seanceId: seance.id,
       classeId: seance.classeId,
       code: actif,
       date: seance.date,
-      besoins: JSON.stringify(liste),
-      amenagements: JSON.stringify([...amenagements]),
+      besoins: JSON.stringify([{ domaine: dom.t, item: sheet.item, niveau, aides: [...aides], apres: apres ?? '' }]),
+      amenagements: JSON.stringify([...amen]),
       note: note.trim(),
-    })
-    // mémoire de session : on retient pour montrer « déjà cliqué » et additionner
-    RETENUS.set(cle(actif), {
-      b: new Set(besoins),
-      a: new Set(amenagements),
-      note: note.trim(),
-      n: (RETENUS.get(cle(actif))?.n ?? 0) + 1,
     })
     forcer((x) => x + 1)
-    setActif(null)
+    setSheet(null)
   }
 
   if (codes.length === 0) {
@@ -175,6 +121,8 @@ export default function Besoins({ seance }: { seance: Seance }) {
     )
   }
 
+  const saved = actif ? savedOf(actif) : {}
+
   return (
     <>
       <div className={styles.grille}>
@@ -185,7 +133,7 @@ export default function Besoins({ seance }: { seance: Seance }) {
               key={code}
               type="button"
               className={`${styles.code} ${actif === code ? styles.codeActif : ''} ${n > 0 ? styles.codeNote : ''}`}
-              onClick={() => (actif === code ? fermer() : ouvrir(code))}
+              onClick={() => setActif(actif === code ? null : code)}
               disabled={!dispo}
               aria-pressed={actif === code}
             >
@@ -198,8 +146,8 @@ export default function Besoins({ seance }: { seance: Seance }) {
 
       {elevesNotes > 0 && !actif && (
         <p className={styles.rien}>
-          Ce cours : <b>{elevesNotes}</b> élève{elevesNotes > 1 ? 's' : ''} relevé{elevesNotes > 1 ? 's' : ''}. La pastille indique
-          ce qui est déjà noté — touche à nouveau un code pour compléter. Tout s’ajoute dans la fiche élève, sur l’ordinateur.
+          Ce cours : <b>{elevesNotes}</b> élève{elevesNotes > 1 ? 's' : ''} relevé{elevesNotes > 1 ? 's' : ''}. La pastille
+          compte les observables notés — touche un code pour compléter. Tout s’ajoute dans la fiche élève, sur l’ordinateur.
         </p>
       )}
 
@@ -212,85 +160,128 @@ export default function Besoins({ seance }: { seance: Seance }) {
             </span>
           </div>
           <div className={styles.rgpd}>🔒 Code seul — aucun nom, aucune donnée médicale. Note ce que tu observes, ça n’est qu’un relevé.</div>
-          {dejaRetenu && (
-            <p className={styles.deja}>Déjà relevé ce cours ({dejaRetenu.n}×) — les cases cochées sont conservées. Complète, puis enregistre.</p>
-          )}
+          <p className={styles.tally}>Ce cours, sur cet élève : <b>{Object.keys(saved).length}</b> observation(s).</p>
 
-          <div className={styles.slab}>
-            <span className={styles.pt} style={{ background: 'var(--c-accent)' }} />
-            Besoins repérés
-            <span className={`${styles.cnt} ${styles.cntB}`}>{besoins.size}</span>
-          </div>
-
-          {DOMAINES.map((d, i) => (
-            <details className={styles.dom} key={d.t} open={i === 0}>
-              <summary>
-                <span className={styles.ic}>{d.ic}</span>
-                {d.t}
-                <span className={`${styles.badge} ${parDomaine[i] > 0 ? styles.on : ''}`}>{parDomaine[i]}</span>
-                <span className={styles.chev}>›</span>
-              </summary>
-              <div className={styles.corps}>
-                <div className={styles.puces}>
-                  {d.items.map((item) => {
-                    const cle = `${i}|${item}`
-                    const on = besoins.has(cle)
+          {DOMAINES.map((dom, di) => {
+            const n = dom.items.filter((it) => saved[`${di}|${it}`]).length
+            return (
+              <details className={styles.dom} key={dom.t} open={di === 0}>
+                <summary>
+                  <span className={styles.ic}>{dom.ic}</span>
+                  <span className={styles.domTitre}>
+                    <b>{dom.t}</b>
+                    <span className={styles.domSub}>{dom.d}</span>
+                  </span>
+                  <span className={`${styles.badge} ${n > 0 ? styles.on : ''}`}>{n}</span>
+                  <span className={styles.chev}>›</span>
+                </summary>
+                <div className={styles.corps}>
+                  {dom.items.map((item) => {
+                    const r = saved[`${di}|${item}`]
                     return (
-                      <button
-                        key={item}
-                        type="button"
-                        className={`${styles.puce} ${on ? styles.puceB : ''}`}
-                        onClick={() => basculer(besoins, cle, setBesoins)}
-                        aria-pressed={on}
-                      >
-                        {item}
+                      <button key={item} type="button" className={`${styles.obs} ${r ? styles.obsFait : ''}`} onClick={() => ouvrirSheet(di, item)}>
+                        <span className={styles.q}>{item}</span>
+                        {r ? (
+                          <span className={styles.lvl} style={{ background: AC[r.niveau] }}>✓ {r.niveau}</span>
+                        ) : (
+                          <span className={styles.plus}>+</span>
+                        )}
                       </button>
                     )
                   })}
                 </div>
-              </div>
-            </details>
-          ))}
-
-          <div className={styles.slab}>
-            <span className={styles.pt} style={{ background: 'var(--c-ok)' }} />
-            Aménagements à préparer
-            <span className={`${styles.cnt} ${styles.cntA}`}>{amenagements.size}</span>
-          </div>
-          <div className={styles.puces}>
-            {AMENAGEMENTS.map((item) => {
-              const on = amenagements.has(item)
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  className={`${styles.puce} ${on ? styles.puceA : ''}`}
-                  onClick={() => basculer(amenagements, item, setAmenagements)}
-                  aria-pressed={on}
-                >
-                  {item}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className={styles.slab}>Commentaire</div>
-          <textarea
-            className={styles.note}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Ex. : activité 2 → texte à trous + consigne lue à voix haute."
-          />
-
-          <div className={styles.duo}>
-            <Button variante="doux" onClick={fermer}>
-              Annuler
-            </Button>
-            <Button variante="principal" disabled={!dispo || rien} onClick={enregistrer}>
-              Enregistrer le relevé
-            </Button>
-          </div>
+              </details>
+            )
+          })}
         </div>
+      )}
+
+      {sheet && actif && (
+        <>
+          <div className={styles.scrim} onClick={() => setSheet(null)} />
+          <div className={styles.sheet}>
+            <div className={styles.grab} />
+            <div className={styles.obl}>{sheet.item}</div>
+            <div className={styles.obd}>
+              {DOMAINES[sheet.di].t} · {actif}
+            </div>
+
+            <div className={styles.slab}>
+              Niveau d’autonomie <span className={styles.req}>requis</span>
+            </div>
+            <div className={styles.scale}>
+              {SCALE.map((sc) => (
+                <button
+                  key={sc.n}
+                  type="button"
+                  className={styles.sc}
+                  style={niveau === sc.n ? { background: AC[sc.n], borderColor: 'transparent', color: '#fff' } : undefined}
+                  onClick={() => setNiveau(sc.n)}
+                >
+                  <span className={styles.scn}>{sc.n}</span>
+                  <span className={styles.scl} style={niveau === sc.n ? { color: 'rgba(255,255,255,.9)' } : undefined}>{sc.l}</span>
+                </button>
+              ))}
+            </div>
+            <div className={styles.scaleExp}>
+              {niveau == null ? (
+                <>Touchez un niveau — de <b>0 autonome</b> à <b>5 accompagnement continu</b>.</>
+              ) : (
+                <>
+                  <b>{niveau} · {SCALE[niveau].l}</b> — {SCALE[niveau].x}
+                </>
+              )}
+            </div>
+
+            <div className={styles.slab}>
+              Aménagement de support à préparer <span className={styles.opt}>· optionnel</span>
+            </div>
+            <div className={styles.tagwrap}>
+              {AMENAGEMENTS.map((a) => (
+                <button key={a} type="button" className={styles.tag} data-on={amen.has(a)} onClick={() => toggle(amen, a, setAmen)}>
+                  {a}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.slab}>
+              Quelle aide a fonctionné ? <span className={styles.opt}>· optionnel</span>
+            </div>
+            <div className={styles.tagwrap}>
+              {AIDES.map((a) => (
+                <button key={a} type="button" className={styles.tag} data-on={aides.has(a)} onClick={() => toggle(aides, a, setAides)}>
+                  {a}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.slab}>
+              Quand on retire l’aide <span className={styles.opt}>· optionnel</span>
+            </div>
+            <div className={styles.tagwrap}>
+              {APRES.map((a) => (
+                <button key={a} type="button" className={styles.tag} data-on={apres === a} onClick={() => setApres(apres === a ? null : a)}>
+                  {a}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.slab}>
+              Fait observé <span className={styles.opt}>· optionnel</span>
+            </div>
+            <textarea
+              className={styles.optnote}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Ex. : après reformulation en une étape, réalise seul les 3 exercices."
+            />
+
+            <button type="button" className={styles.save} disabled={niveau == null || !dispo} onClick={enregistrerObs}>
+              Enregistrer l’observation
+            </button>
+            <p className={styles.opthint}>Seul le niveau est requis — le reste enrichit la synthèse.</p>
+          </div>
+        </>
       )}
     </>
   )
