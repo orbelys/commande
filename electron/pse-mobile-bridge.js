@@ -295,7 +295,11 @@
         total: Number(e.roue.total) || 0,
         dejaTires: Number(e.roue.dejaTires) || 0,
         dernier: e.roue.dernier ? 'Élève tiré' : ''
-      } : { configuree: false, classe: '', dansLaRoue: 0, total: 0, dejaTires: 0, dernier: '' }
+      } : { configuree: false, classe: '', dansLaRoue: 0, total: 0, dejaTires: 0, dernier: '' },
+      ressources: (e.ressources || []).map(function (r, i) {
+        return { idx: typeof r.idx === 'number' ? r.idx : i, titre: String(r.titre || ('Ressource ' + (i + 1))), type: String(r.type || '') };
+      }),
+      ressourceActive: typeof e.ressourceActive === 'number' ? e.ressourceActive : -1
     };
   }
 
@@ -735,6 +739,8 @@
     'projection.roue.tourner': function () { return envoyerProjection({ cmd: 'roue-spin' }); },
     'projection.roue.reinitialiser': function () { return envoyerProjection({ cmd: 'roue-reset' }); },
     'projection.roue.cacher': function () { return envoyerProjection({ cmd: 'roue-hide' }); },
+    'projection.ressource.afficher': function (p) { return envoyerProjection({ cmd: 'ressource', index: Number(p.index) }); },
+    'projection.ressource.fermer': function () { return envoyerProjection({ cmd: 'ressource-fermer' }); },
 
     'seance.statut': function (p) {
       var statut = String(p.statut);
@@ -970,7 +976,7 @@
   /* Une fois le compte connecté : publier, écouter les commandes, republier. */
   var enMarche = false;
   var erreurEcoute = false;
-  async function activer(utilisateur) {
+  async function activer(utilisateur, tentative) {
     if (!estChef()) return;
     if (enMarche && uid === utilisateur.uid) return;
     arreterEcoutes();
@@ -979,10 +985,16 @@
     nomPoste = nomPosteAuto();
     erreurEcoute = false;
     enMarche = true;
+    var reprise = null;
+    var echecs = Number(tentative) || 0;
+    arreters.push(function () { clearTimeout(reprise); });
 
     arreters.push(fs.onSnapshot(
       fs.query(fs.collection(db, COL_COMMANDES, uid, SOUS_FILE), fs.where('statut', '==', 'envoyee')),
       function (snap) {
+        if (gen !== generation || !estChef()) return;
+        erreurEcoute = false;
+        echecs = 0;
         var travail = [];
         snap.forEach(function (d) { travail.push(d); });
         travail.sort(function (a, b) { return String(a.data().creeeA).localeCompare(String(b.data().creeeA)) || a.id.localeCompare(b.id); });
@@ -998,6 +1010,14 @@
         if (gen !== generation || !estChef()) return;
         erreurEcoute = true;
         pastille('erreur', String(e.message || e));
+        // Une erreur terminale ferme onSnapshot : le battement seul ne le restaure pas.
+        if (reprise !== null) return;
+        reprise = setTimeout(function () {
+          reprise = null;
+          if (gen !== generation || !estChef()) return;
+          arreterEcoutes();
+          activer(utilisateur, Math.min(echecs + 1, 4)).catch(function () {});
+        }, Math.min(60000, 5000 * Math.pow(2, echecs)));
       }
     ));
 

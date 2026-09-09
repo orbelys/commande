@@ -27,6 +27,9 @@ export class FirebaseTransport implements Transport {
   private off: Desabonnement[] = []
   private authOff: Desabonnement | null = null
   private generation = 0
+  private generationEcoute = 0
+  private reprise: ReturnType<typeof setTimeout> | null = null
+  private echecsEcoute = 0
   private actif = false
   private enLigne = false
   private chargement: Promise<unknown> | null = null
@@ -58,6 +61,9 @@ export class FirebaseTransport implements Transport {
   }
 
   private nettoyerEcoutes(): void {
+    this.generationEcoute++
+    if (this.reprise !== null) clearTimeout(this.reprise)
+    this.reprise = null
     this.off.forEach((f) => f())
     this.off = []
     this.enLigne = false
@@ -169,6 +175,7 @@ export class FirebaseTransport implements Transport {
     this.authOff = authMod.onAuthStateChanged(auth, (user: { uid: string; email: string | null } | null) => {
         if (!this.actif || generation !== this.generation) return
         this.nettoyerEcoutes()
+        this.echecsEcoute = 0
         if (!user) {
           this.compte = null
           this.emitter.emit({ type: 'status', status: 'offline' })
@@ -186,12 +193,20 @@ export class FirebaseTransport implements Transport {
   /** Abonnements temps réel : instantané du poste + statut des commandes. */
   private ecouter(uid: string, generation: number): void {
     const { db, fs } = this.sdk
-    const courant = () => this.actif && generation === this.generation && this.compte?.uid === uid
+    const ecoute = ++this.generationEcoute
+    const sessionCourante = () => this.actif && generation === this.generation && this.compte?.uid === uid
+    const courant = () => sessionCourante() && ecoute === this.generationEcoute
     const erreur = (e: unknown) => {
       if (!courant()) return
-      this.enLigne = false
+      this.nettoyerEcoutes()
       this.emitter.emit({ type: 'status', status: 'offline' })
       this.emitter.emit({ type: 'erreur', message: messageErreur(e) })
+      // Une erreur terminale detache l'ecoute Firebase ; la recreer avec delai borne.
+      const delai = Math.min(60_000, 5_000 * 2 ** Math.min(this.echecsEcoute++, 4))
+      this.reprise = setTimeout(() => {
+        this.reprise = null
+        if (sessionCourante()) this.ecouter(uid, generation)
+      }, delai)
     }
 
     const [pc, pid] = CHEMINS.poste(uid)
@@ -202,6 +217,7 @@ export class FirebaseTransport implements Transport {
         (doc: { exists: () => boolean; data: () => Snapshot; metadata: { fromCache: boolean } }) => {
           if (!courant()) return
           this.enLigne = !doc.metadata.fromCache && doc.exists()
+          if (this.enLigne) this.echecsEcoute = 0
           this.emitter.emit({ type: 'status', status: this.enLigne ? 'online' : 'offline' })
           if (!doc.exists()) {
             this.emitter.emit({

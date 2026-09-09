@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Card from '../../components/ui/Card'
 import PageHeader from '../../components/ui/PageHeader'
 import Badge from '../../components/ui/Badge'
@@ -238,19 +238,13 @@ function Panneau({ groupe }: { groupe: Groupe<SeanceSituee> }) {
   const membres = groupe.membres
   const vedette = groupe.vedette
   const [memo, setMemo] = useState(vedette.memo)
-  const [envoiMemo, setEnvoiMemo] = useState(false)
-  const [memoCommande, setMemoCommande] = useState<string | null>(null)
-  const resultat = commandes.find(c => c.id === memoCommande)
-  useEffect(() => {
-    if (resultat && ['echouee', 'appliquee', 'sans_confirmation'].includes(resultat.statut)) setEnvoiMemo(false)
-  }, [resultat])
+  const [memoCommandes, setMemoCommandes] = useState<string[]>([])
+  const resultats = memoCommandes.map(id => commandes.find(c => c.id === id))
+  const envoiMemo = resultats.some(c => !c || ['en_attente', 'envoyee', 'en_cours'].includes(c.statut))
+  const echecsMemo = resultats.filter(c => c && ['echouee', 'sans_confirmation'].includes(c.statut))
   const dispo = status === 'online' && (snapshot?.capacites.progression ?? false)
 
-  useEffect(() => {
-    if (memo === vedette.memo) setEnvoiMemo(false)
-  }, [vedette.memo, memo])
-
-  const memoModifie = memo !== vedette.memo
+  const memoModifie = membres.some(m => memo !== m.memo)
   const memoEnregistre = !memoModifie && memo.trim() !== ''
   const remiseCommune = membres.every((m) => m.remise === vedette.remise) ? vedette.remise : ''
 
@@ -313,9 +307,8 @@ function Panneau({ groupe }: { groupe: Groupe<SeanceSituee> }) {
         variante={memoEnregistre ? 'succes' : 'principal'}
         disabled={!dispo || !memoModifie || envoiMemo}
         onClick={() => {
-          setEnvoiMemo(true)
           const ids = membres.map((m) => envoyer('seance.memo', { seanceId: m.id, memo }).id)
-          setMemoCommande(ids[0] ?? null)
+          setMemoCommandes(ids)
         }}
       >
         {envoiMemo
@@ -325,7 +318,7 @@ function Panneau({ groupe }: { groupe: Groupe<SeanceSituee> }) {
             : 'Enregistrer le mémo'}
       </Button>
 
-      {resultat && ['echouee', 'sans_confirmation'].includes(resultat.statut) && <p role="alert">{resultat.erreur || 'Enregistrement non confirmé. Ton texte reste dans le champ.'}</p>}
+      {echecsMemo.map(c => c && <p key={c.id} role="alert">{membres.find(m => m.id === c.payload.seanceId)?.classeNom} : {c.erreur || 'Enregistrement non confirmé. Ton texte reste dans le champ.'}</p>)}
 
       {vedette.salle && <p className={styles.salle}>Salle {vedette.salle}</p>}
     </div>
