@@ -278,6 +278,8 @@ export type CommandType =
   | 'projection.audio.arreter'
   | 'projection.accessibilite.taille'
   | 'projection.accessibilite.prereglage'
+  | 'projection.tableau.afficher'
+  | 'projection.tableau.fermer'
   | 'projection.roue.tourner'
   | 'projection.roue.reinitialiser'
   | 'projection.roue.cacher'

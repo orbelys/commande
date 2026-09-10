@@ -736,6 +736,8 @@
     'projection.audio.arreter': function () { return envoyerProjection({ cmd:'audio-stop' }); },
     'projection.accessibilite.taille': function (p) { return envoyerProjection({ cmd:'a11y-taille',taille:p.taille }); },
     'projection.accessibilite.prereglage': function (p) { return envoyerProjection({ cmd:'a11y-prereglage',nom:p.nom }); },
+    'projection.tableau.afficher': function () { return envoyerProjection({ cmd:'tableau-show' }); },
+    'projection.tableau.fermer': function () { return envoyerProjection({ cmd:'tableau-hide' }); },
     'projection.roue.tourner': function () { return envoyerProjection({ cmd: 'roue-spin' }); },
     'projection.roue.reinitialiser': function () { return envoyerProjection({ cmd: 'roue-reset' }); },
     'projection.roue.cacher': function () { return envoyerProjection({ cmd: 'roue-hide' }); },

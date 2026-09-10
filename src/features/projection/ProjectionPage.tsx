@@ -55,6 +55,14 @@ export default function ProjectionPage() {
     <>
       <PageHeader titre="Projection" detail="Piloter le cours projeté en classe" />
 
+      <Card titre="Mon tableau">
+        <div className={styles.duo}>
+          <Button disabled={!disponible || !projection.fenetreOuverte} onClick={() => envoyer('projection.tableau.afficher')}>✍️ Afficher le Tableau</Button>
+          <Button disabled={!disponible || !projection.fenetreOuverte} onClick={() => envoyer('projection.tableau.fermer')}>← Revenir au cours</Button>
+        </div>
+        <p className={styles.meta}>Affiche la version publiée du Tableau préparé sur le Mac.</p>
+      </Card>
+
       <Card
         titre="Télécommande"
         action={

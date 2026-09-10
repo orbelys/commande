@@ -18,6 +18,8 @@ const LIBELLES: Record<CommandType, string> = {
   'projection.audio.arreter': 'Arrêter la lecture',
   'projection.accessibilite.taille': 'Régler la taille du texte',
   'projection.accessibilite.prereglage': 'Régler l’accessibilité',
+  'projection.tableau.afficher': 'Afficher le Tableau',
+  'projection.tableau.fermer': 'Revenir au cours',
   'projection.roue.tourner': 'Tourner la roue',
   'projection.roue.reinitialiser': 'Réinitialiser la roue',
   'projection.roue.cacher': 'Cacher la roue',
