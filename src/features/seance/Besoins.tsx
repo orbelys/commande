@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useBridge } from '../../hooks/useBridge'
 import type { Seance } from '../../services/bridge/types'
+import CommentaireLibre from './CommentaireLibre'
 import styles from './Besoins.module.css'
 
 /**
@@ -168,6 +169,8 @@ export default function Besoins({ membres }: { membres: Seance[] }) {
           compte les observables notés — touche un code pour compléter. Tout s’ajoute dans la fiche élève, sur l’ordinateur.
         </p>
       )}
+
+      <CommentaireLibre code={actif ?? ''} membre={actif && parClasse.filter(b => b.codes.includes(actif)).length === 1 ? membreOf[actif] : undefined} />
 
       {actif && (
         <div className={styles.editeur}>
